@@ -9,9 +9,11 @@ export function AuthView() {
   const { setupRequired, setUser } = useAuthStore();
   const { toast } = useToast();
 
+  const [mode, setMode] = useState<'login' | 'invite'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,8 +22,16 @@ export function AuthView() {
     setIsLoading(true);
     setError(null);
 
-    const endpoint = setupRequired ? '/api/auth/bootstrap' : '/api/auth/login';
-    const payload = setupRequired ? { name, email, password } : { email, password };
+    let endpoint = '/api/auth/login';
+    let payload: Record<string, string> = { email, password };
+
+    if (setupRequired) {
+      endpoint = '/api/auth/bootstrap';
+      payload = { name, email, password };
+    } else if (mode === 'invite') {
+      endpoint = '/api/auth/register';
+      payload = { code: inviteCode.trim(), name, password };
+    }
 
     try {
       const res = await fetch(endpoint, {
@@ -35,7 +45,11 @@ export function AuthView() {
       if (json.success) {
         setUser(json.data.user);
         toast(
-          setupRequired ? 'Administrator account created successfully!' : `Welcome back, ${json.data.user.name}!`,
+          setupRequired
+            ? 'Administrator account created successfully!'
+            : mode === 'invite'
+            ? `Welcome to LifeOS, ${json.data.user.name}!`
+            : `Welcome back, ${json.data.user.name}!`,
           'success'
         );
       } else {
@@ -56,14 +70,53 @@ export function AuthView() {
             L
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
-            {setupRequired ? 'Initialize LifeOS' : 'Sign in to LifeOS'}
+            {setupRequired
+              ? 'Initialize LifeOS'
+              : mode === 'invite'
+              ? 'Claim Your LifeOS Invite'
+              : 'Sign in to LifeOS'}
           </h1>
           <p className="text-xs text-foreground/60 max-w-xs mx-auto">
             {setupRequired
               ? 'Welcome! Create the initial primary Administrator account for your private instance.'
+              : mode === 'invite'
+              ? 'Enter your invitation code and configure your account credentials.'
               : 'Private personal productivity and household management system.'}
           </p>
         </div>
+
+        {!setupRequired && (
+          <div className="flex border border-border rounded-token p-1 bg-muted/40">
+            <button
+              type="button"
+              onClick={() => {
+                setMode('login');
+                setError(null);
+              }}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-token transition-all ${
+                mode === 'login'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-foreground/60 hover:text-foreground'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('invite');
+                setError(null);
+              }}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-token transition-all ${
+                mode === 'invite'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-foreground/60 hover:text-foreground'
+              }`}
+            >
+              Have an Invite Code?
+            </button>
+          </div>
+        )}
 
         {error && (
           <div
@@ -75,7 +128,20 @@ export function AuthView() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {setupRequired && (
+          {mode === 'invite' && !setupRequired && (
+            <Input
+              label="Invitation Code"
+              type="text"
+              placeholder="e.g. a7f9b2c4e1d3"
+              required
+              autoFocus
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              hint="Paste the invite code provided by your household administrator"
+            />
+          )}
+
+          {(setupRequired || mode === 'invite') && (
             <Input
               label="Your Full Name"
               type="text"
@@ -86,29 +152,53 @@ export function AuthView() {
             />
           )}
 
-          <Input
-            label="Email Address"
-            type="email"
-            placeholder="alex@example.com"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          {mode === 'login' && !setupRequired && (
+            <Input
+              label="Email Address"
+              type="email"
+              placeholder="alex@example.com"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          )}
+
+          {setupRequired && (
+            <Input
+              label="Email Address"
+              type="email"
+              placeholder="admin@example.com"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          )}
 
           <Input
             label="Password"
             type="password"
             placeholder="••••••••••••"
             required
-            autoComplete={setupRequired ? 'new-password' : 'current-password'}
-            hint={setupRequired ? 'Minimum 10 characters for admin accounts' : undefined}
+            autoComplete={setupRequired || mode === 'invite' ? 'new-password' : 'current-password'}
+            hint={
+              setupRequired
+                ? 'Minimum 10 characters for admin accounts'
+                : mode === 'invite'
+                ? 'Minimum 8 characters'
+                : undefined
+            }
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
 
           <Button type="submit" isLoading={isLoading} className="w-full mt-2" size="lg">
-            {setupRequired ? 'Complete Setup & Sign In' : 'Sign In'}
+            {setupRequired
+              ? 'Complete Setup & Sign In'
+              : mode === 'invite'
+              ? 'Accept Invite & Join'
+              : 'Sign In'}
           </Button>
         </form>
 
