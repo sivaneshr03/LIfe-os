@@ -8,11 +8,9 @@ import { useToast } from '../ui/Toast';
 import {
   IconCheckSquare,
   IconPlus,
-  IconSearch,
   IconCalendar,
   IconRefreshCw,
   IconTrash,
-  IconClock,
   IconChevronLeft,
   IconChevronRight,
 } from '../ui/Icons';

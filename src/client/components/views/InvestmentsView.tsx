@@ -6,7 +6,7 @@ import { Modal } from '../ui/Modal';
 import { Card3D } from '../ui/Card3D';
 import { LoadingState } from '../ui/States';
 import { useToast } from '../ui/Toast';
-import { IconPlus, IconTrendingUp, IconCheck, IconFileText, IconRefreshCw } from '../ui/Icons';
+import { IconPlus, IconTrendingUp, IconFileText, IconRefreshCw } from '../ui/Icons';
 import { formatMoney, parseMoney } from '../../../shared/utils/money';
 import type {
   InvestmentPortfolioSummary,

@@ -9,7 +9,6 @@ import { CategoryDropdown } from '../ui/CategoryDropdown';
 import {
   IconFileText,
   IconPlus,
-  IconSearch,
   IconPin,
   IconCopy,
   IconChevronLeft,

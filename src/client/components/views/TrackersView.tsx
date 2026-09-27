@@ -18,7 +18,6 @@ import {
   IconTrendingUp,
   IconFileText,
   IconCalendar,
-  IconTrash,
 } from '../ui/Icons';
 import type {
   HabitData,

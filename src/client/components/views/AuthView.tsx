@@ -3,7 +3,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useToast } from '../ui/Toast';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { IconLock, IconShield } from '../ui/Icons';
+import { IconLock } from '../ui/Icons';
 import type { ApiResponse, AuthSessionData } from '../../../shared/types';
 
 import { safeParseJson } from '../../lib/api';

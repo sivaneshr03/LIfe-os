@@ -6,7 +6,7 @@ import { Modal } from '../ui/Modal';
 import { Card3D } from '../ui/Card3D';
 import { LoadingState } from '../ui/States';
 import { useToast } from '../ui/Toast';
-import { IconPlus, IconRefreshCw, IconCreditCard, IconTrash, IconChevronRight } from '../ui/Icons';
+import { IconPlus, IconRefreshCw, IconChevronRight } from '../ui/Icons';
 import { CategoryPickerModal } from '../ui/CategoryPickerModal';
 import { CategoryDropdown } from '../ui/CategoryDropdown';
 import { MobileTransactionSheet } from '../ui/MobileTransactionSheet';
