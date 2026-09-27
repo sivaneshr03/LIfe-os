@@ -18,7 +18,7 @@ export interface HeaderProps {
 }
 
 export function Header({ currentView, onNavigate }: HeaderProps) {
-  const { themeMode, setThemeMode, toggleSidebar } = useThemeStore();
+  const { themeMode, setThemeMode, toggleSidebar, toggleMobileDrawer } = useThemeStore();
   const { user, logout } = useAuthStore();
 
   const cycleTheme = () => {
@@ -37,13 +37,24 @@ export function Header({ currentView, onNavigate }: HeaderProps) {
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-8 bg-card/80 backdrop-blur-xl border-b border-border/70 transition-colors shadow-xs">
       <div className="flex items-center gap-3">
         <button
-          onClick={toggleSidebar}
-          aria-label="Toggle sidebar collapse"
-          className="hidden md:flex p-2 rounded-token border border-border/80 text-foreground/70 hover:text-foreground hover:bg-muted/70 transition-colors focus-visible:ring-2 focus-visible:ring-primary active:scale-95 cursor-pointer"
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.innerWidth < 768) {
+              toggleMobileDrawer();
+            } else {
+              toggleSidebar();
+            }
+          }}
+          aria-label="Toggle navigation menu"
+          className="flex p-2 rounded-token border border-border/80 text-foreground/70 hover:text-foreground hover:bg-muted/70 transition-colors focus-visible:ring-2 focus-visible:ring-primary active:scale-95 cursor-pointer min-h-[38px] min-w-[38px] items-center justify-center touch-manipulation"
         >
           <IconMenu size={18} />
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
+          <img
+            src="/logo.png"
+            alt="LifeOS Logo"
+            className="w-7 h-7 rounded-lg md:hidden object-contain shrink-0"
+          />
           <span className="font-extrabold text-base capitalize tracking-tight text-foreground">
             {currentView}
           </span>

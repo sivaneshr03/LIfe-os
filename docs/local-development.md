@@ -25,18 +25,25 @@ cp .dev.vars.example .dev.vars
 ```
 
 ### 3.3 Step 3: Run the Development Server
-You can run the full edge stack locally using two terminals:
 
-**Terminal 1 (Vite Frontend with HMR):**
+**Option A: Single Command (Frontend + Backend concurrently):**
 ```bash
 npm run dev
-# Serves on http://localhost:5173 with proxy for /api/* to http://localhost:8787
+# Starts both the Wrangler worker backend (http://localhost:8787) and Vite frontend (http://localhost:5173)
 ```
 
-**Terminal 2 (Wrangler Edge Worker with Local Miniflare D1):**
+**Option B: Separate Terminals:**
+
+**Terminal 1 (Backend Worker & Miniflare D1):**
 ```bash
 npm run dev:server
 # Serves on http://localhost:8787 with local SQLite database in .wrangler/state/v3/d1
+```
+
+**Terminal 2 (Vite Frontend with HMR):**
+```bash
+npm run dev:client
+# Serves on http://localhost:5173 with proxy for /api/* to http://localhost:8787
 ```
 
 ---

@@ -10,6 +10,9 @@ interface ThemeState extends UserPreferencesData {
   setReducedMotion: (motion: ReducedMotion) => void;
   setBaseCurrency: (currency: string) => void;
   toggleSidebar: () => void;
+  mobileDrawerOpen: boolean;
+  toggleMobileDrawer: () => void;
+  setMobileDrawerOpen: (open: boolean) => void;
   setPreferences: (prefs: Partial<UserPreferencesData>) => void;
   applyToDom: () => void;
 }
@@ -123,6 +126,16 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
       return { sidebarCollapsed: next };
     });
     saveStoredPreferences(get());
+  },
+
+  mobileDrawerOpen: false,
+
+  toggleMobileDrawer: () => {
+    set((state) => ({ mobileDrawerOpen: !state.mobileDrawerOpen }));
+  },
+
+  setMobileDrawerOpen: (open: boolean) => {
+    set({ mobileDrawerOpen: open });
   },
 
   setPreferences: (prefs) => {

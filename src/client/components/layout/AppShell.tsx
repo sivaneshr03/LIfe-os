@@ -11,7 +11,7 @@ export interface AppShellProps {
 
 export function AppShell({ currentView, onNavigate, children }: AppShellProps) {
   return (
-    <div className="relative flex min-h-dvh bg-background text-foreground antialiased transition-colors selection:bg-primary/20 selection:text-primary overflow-x-hidden">
+    <div className="relative flex min-h-dvh bg-background text-foreground antialiased transition-colors selection:bg-primary/20 selection:text-primary overflow-x-clip">
       <Sidebar currentView={currentView} onNavigate={onNavigate} />
 
       <div className="relative z-10 flex-1 flex flex-col min-w-0 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-8">

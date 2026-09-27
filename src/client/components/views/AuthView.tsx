@@ -81,9 +81,11 @@ export function AuthView() {
 
       <div className="relative w-full max-w-md bg-card/90 backdrop-blur-2xl text-card-foreground border border-border/80 rounded-2xl sm:rounded-3xl shadow-float p-5 sm:p-8 space-y-6 glass-inner animate-scale-in">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-primary text-primary-foreground mx-auto flex items-center justify-center font-extrabold text-xl shadow-md shadow-primary/25 select-none animate-breathe">
-            L
-          </div>
+          <img
+            src="/logo.png"
+            alt="LifeOS Logo"
+            className="w-14 h-14 rounded-2xl mx-auto object-contain shadow-lg shadow-emerald-500/20 select-none animate-breathe"
+          />
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
               {setupRequired

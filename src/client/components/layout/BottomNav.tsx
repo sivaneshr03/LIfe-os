@@ -102,7 +102,10 @@ export function BottomNav({ currentView, onNavigate }: BottomNavProps) {
           />
           <div className="bg-card text-card-foreground border-t border-border/80 rounded-t-3xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] shadow-float animate-slide-up space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-border/60">
-              <span className="text-sm font-bold tracking-tight text-foreground">Menu & Areas</span>
+              <div className="flex items-center gap-2.5">
+                <img src="/logo.png" alt="LifeOS Logo" className="w-6 h-6 rounded-lg object-contain" />
+                <span className="text-sm font-bold tracking-tight text-foreground">LifeOS Menu</span>
+              </div>
               <button
                 onClick={() => setDrawerOpen(false)}
                 className="text-foreground/40 hover:text-foreground p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-muted touch-manipulation"
