@@ -162,10 +162,11 @@ describe('Client Design System & Auth State Invariant Suite', () => {
   it('enforces RBAC visibility rules on navigation items', () => {
     const NAV_ITEMS = [
       { id: 'dashboard', label: 'Dashboard', icon: '⚡' },
-      { id: 'tasks', label: 'Tasks (Planned)', icon: '✓' },
-      { id: 'finance', label: 'Finance (Planned)', icon: '💳' },
-      { id: 'notes', label: 'Notes (Planned)', icon: '📝' },
-      { id: 'trackers', label: 'Habits (Planned)', icon: '📈' },
+      { id: 'tasks', label: 'Tasks & Projects', icon: '✓' },
+      { id: 'finance', label: 'Finance & Ledger', icon: '💳' },
+      { id: 'investments', label: 'Investments', icon: '📈' },
+      { id: 'notes', label: 'Notes & Prompts', icon: '📝' },
+      { id: 'trackers', label: 'Habits & Fitness', icon: '🎯' },
       { id: 'admin', label: 'Admin Panel', icon: '🛡️', adminOnly: true },
       { id: 'settings', label: 'Settings', icon: '⚙️' },
     ];
@@ -175,6 +176,7 @@ describe('Client Design System & Auth State Invariant Suite', () => {
     const userVisible = NAV_ITEMS.filter((item) => !item.adminOnly || standardUser.role === 'admin');
     expect(userVisible.some((i) => i.id === 'admin')).toBe(false);
     expect(userVisible.some((i) => i.id === 'dashboard')).toBe(true);
+    expect(userVisible.some((i) => i.id === 'tasks')).toBe(true);
     expect(userVisible.some((i) => i.id === 'settings')).toBe(true);
 
     // Admin perspective
@@ -183,4 +185,26 @@ describe('Client Design System & Auth State Invariant Suite', () => {
     expect(adminVisible.some((i) => i.id === 'admin')).toBe(true);
     expect(adminVisible.some((i) => i.id === 'dashboard')).toBe(true);
   });
+
+  it('tests mobile layout collapse and dark mode class toggles', () => {
+    const { setThemeMode, toggleSidebar } = useThemeStore.getState();
+
+    // Dark mode test
+    setThemeMode('dark');
+    expect(useThemeStore.getState().themeMode).toBe('dark');
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+
+    // Light mode test
+    setThemeMode('light');
+    expect(useThemeStore.getState().themeMode).toBe('light');
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+
+    // Mobile layout toggle test
+    const initialCollapsed = useThemeStore.getState().sidebarCollapsed;
+    toggleSidebar();
+    expect(useThemeStore.getState().sidebarCollapsed).toBe(!initialCollapsed);
+    toggleSidebar();
+    expect(useThemeStore.getState().sidebarCollapsed).toBe(initialCollapsed);
+  });
 });
+

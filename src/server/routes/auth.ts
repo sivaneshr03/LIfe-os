@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { setCookie, deleteCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
-import { eq, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { createDb } from '../db/client';
 import { users, sessions, userPreferences, invites, type User } from '../db/schema';
 import { hashPassword, verifyPassword, generateOpaqueToken, hashIp } from '../lib/crypto';
@@ -10,6 +10,7 @@ import { logAuditEvent } from '../lib/audit';
 import { requireAuth, SESSION_COOKIE_NAME } from '../middleware/auth';
 import { createRateLimiter } from '../middleware/rateLimit';
 import { loginSchema, bootstrapSchema, changePasswordSchema, acceptInviteSchema } from '../../shared/schemas/auth';
+import { seedDefaultCategories } from '../services/categoryDefaults';
 import type { ApiSuccessResponse, AuthSessionData, PublicUser, UserPreferencesData } from '../../shared/types';
 import type { AppBindings } from '../index';
 
@@ -34,6 +35,8 @@ const defaultPreferences: UserPreferencesData = {
   borderRadius: 'medium',
   reducedMotion: 'system',
   sidebarCollapsed: false,
+  timezone: 'UTC',
+  baseCurrency: 'INR',
 };
 
 // Check if first-run setup is required
@@ -91,8 +94,13 @@ authRouter.post('/bootstrap', zValidator('json', bootstrapSchema), async (c) => 
     borderRadius: 'medium',
     reducedMotion: 'system',
     sidebarCollapsed: 0,
+    timezone: 'UTC',
+    baseCurrency: 'INR',
     updatedAt: now,
   });
+
+  // Seed domain-isolated default categories for the new instance owner
+  await seedDefaultCategories(c.env.DB, userId);
 
   // Create initial 30-day session
   const sessionId = generateOpaqueToken(32);
@@ -191,6 +199,8 @@ authRouter.post('/login', createRateLimiter({ max: 5, windowMs: 15 * 60 * 1000 }
         borderRadius: prefs.borderRadius as 'none' | 'small' | 'medium' | 'large',
         reducedMotion: prefs.reducedMotion as 'system' | 'reduce' | 'no-preference',
         sidebarCollapsed: Boolean(prefs.sidebarCollapsed),
+        timezone: prefs.timezone || 'UTC',
+        baseCurrency: prefs.baseCurrency || 'INR',
       }
     : defaultPreferences;
 
@@ -205,7 +215,7 @@ authRouter.post('/login', createRateLimiter({ max: 5, windowMs: 15 * 60 * 1000 }
 });
 
 // Onboard a user using an invite code (allowlist onboarding foundation)
-authRouter.post('/register', zValidator('json', acceptInviteSchema), async (c) => {
+authRouter.post('/register', createRateLimiter({ max: 20, windowMs: 15 * 60 * 1000 }), zValidator('json', acceptInviteSchema), async (c) => {
   if (!c.env?.DB) throw new HTTPException(503, { message: 'Database unavailable' });
   const db = createDb(c.env.DB);
   const { code, name, password } = c.req.valid('json');
@@ -276,8 +286,13 @@ authRouter.post('/register', zValidator('json', acceptInviteSchema), async (c) =
     borderRadius: 'medium',
     reducedMotion: 'system',
     sidebarCollapsed: 0,
+    timezone: 'UTC',
+    baseCurrency: 'INR',
     updatedAt: now,
   });
+
+  // Seed domain-isolated default categories for the invited user
+  await seedDefaultCategories(c.env.DB, userId);
 
   // Create initial 30-day session
   const sessionId = generateOpaqueToken(32);
@@ -351,6 +366,8 @@ authRouter.get('/me', requireAuth, async (c) => {
         borderRadius: prefs.borderRadius as 'none' | 'small' | 'medium' | 'large',
         reducedMotion: prefs.reducedMotion as 'system' | 'reduce' | 'no-preference',
         sidebarCollapsed: Boolean(prefs.sidebarCollapsed),
+        timezone: prefs.timezone || 'UTC',
+        baseCurrency: prefs.baseCurrency || 'INR',
       }
     : defaultPreferences;
 
@@ -364,34 +381,78 @@ authRouter.get('/me', requireAuth, async (c) => {
   });
 });
 
-// Password change
-authRouter.post('/change-password', requireAuth, zValidator('json', changePasswordSchema), async (c) => {
-  const user = c.get('user');
-  const db = createDb(c.env.DB);
-  const { currentPassword, newPassword } = c.req.valid('json');
+// Password change with rate limiting and session rotation
+authRouter.post(
+  '/change-password',
+  createRateLimiter({ max: 10, windowMs: 15 * 60 * 1000 }),
+  requireAuth,
+  zValidator('json', changePasswordSchema),
+  async (c) => {
+    const user = c.get('user');
+    const currentSession = c.get('session');
+    const db = createDb(c.env.DB);
+    const { currentPassword, newPassword } = c.req.valid('json');
 
-  const isValidCurrent = await verifyPassword(currentPassword, user.passwordHash, user.salt);
-  if (!isValidCurrent) {
-    throw new HTTPException(400, { message: 'Current password does not match' });
+    const isValidCurrent = await verifyPassword(currentPassword, user.passwordHash, user.salt);
+    if (!isValidCurrent) {
+      throw new HTTPException(400, { message: 'Current password does not match' });
+    }
+
+    const { hash: newHash, salt: newSalt } = await hashPassword(newPassword);
+    const now = new Date();
+
+    await db
+      .update(users)
+      .set({
+        passwordHash: newHash,
+        salt: newSalt,
+        updatedAt: now,
+      })
+      .where(eq(users.id, user.id));
+
+    // Security hardening: Invalidate any other active sessions
+    if (currentSession?.id) {
+      await db.delete(sessions).where(and(eq(sessions.userId, user.id), sql`id != ${currentSession.id}`));
+    } else {
+      await db.delete(sessions).where(eq(sessions.userId, user.id));
+    }
+
+    // Rotate current session identifier to prevent session fixation attacks
+    const newSessionId = generateOpaqueToken(32);
+    const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const clientIp = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
+    const ipHash = await hashIp(clientIp);
+
+    if (currentSession?.id) {
+      await db.delete(sessions).where(eq(sessions.id, currentSession.id));
+    }
+
+    await db.insert(sessions).values({
+      id: newSessionId,
+      userId: user.id,
+      expiresAt,
+      createdAt: now,
+      lastActiveAt: now,
+      ipHash,
+      userAgent: c.req.header('user-agent')?.slice(0, 255),
+    });
+
+    const isProd = c.env.ENVIRONMENT === 'production' || c.env.ENVIRONMENT === 'preview';
+    setCookie(c, SESSION_COOKIE_NAME, newSessionId, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60,
+    });
+
+    await logAuditEvent(c, 'auth.password_changed', { rotatedSession: true }, user.id);
+
+    return c.json<ApiSuccessResponse<{ message: string }>>({
+      success: true,
+      data: { message: 'Password successfully updated' },
+    });
   }
-
-  const { hash: newHash, salt: newSalt } = await hashPassword(newPassword);
-
-  await db
-    .update(users)
-    .set({
-      passwordHash: newHash,
-      salt: newSalt,
-      updatedAt: new Date(),
-    })
-    .where(eq(users.id, user.id));
-
-  await logAuditEvent(c, 'auth.password_changed', {}, user.id);
-
-  return c.json<ApiSuccessResponse<{ message: string }>>({
-    success: true,
-    data: { message: 'Password successfully updated' },
-  });
-});
+);
 
 export { authRouter };

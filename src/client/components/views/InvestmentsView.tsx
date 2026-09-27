@@ -1,0 +1,986 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { clsx } from 'clsx';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Modal } from '../ui/Modal';
+import { Card3D } from '../ui/Card3D';
+import { LoadingState } from '../ui/States';
+import { useToast } from '../ui/Toast';
+import { IconPlus, IconTrendingUp, IconCheck, IconFileText, IconRefreshCw } from '../ui/Icons';
+import { formatMoney, parseMoney } from '../../../shared/utils/money';
+import type {
+  InvestmentPortfolioSummary,
+  InvestmentAssetData,
+  InvestmentTransactionData,
+  InvestmentTransactionType,
+  AssetType,
+  ApiSuccessResponse,
+  CsvImportResponse,
+} from '../../../shared/types';
+import { safeParseJson } from '../../lib/api';
+
+export function InvestmentsView() {
+  const { addToast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [portfolio, setPortfolio] = useState<InvestmentPortfolioSummary | null>(null);
+  const [assets, setAssets] = useState<InvestmentAssetData[]>([]);
+  const [transactions, setTransactions] = useState<InvestmentTransactionData[]>([]);
+  const [activeTab, setActiveTab] = useState<'holdings' | 'transactions' | 'allocation'>('holdings');
+
+  // Modals
+  const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // New Asset form
+  const [sym, setSym] = useState('');
+  const [name, setName] = useState('');
+  const [type, setType] = useState<AssetType>('stock');
+  const [shares, setShares] = useState('1');
+  const [avgCost, setAvgCost] = useState('');
+  const [price, setPrice] = useState('');
+
+  // Quote form
+  const [selectedAssetId, setSelectedAssetId] = useState('');
+  const [newQuotePrice, setNewQuotePrice] = useState('');
+
+  // Transaction form
+  const [txAssetId, setTxAssetId] = useState('');
+  const [txType, setTxType] = useState<InvestmentTransactionType>('buy');
+  const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
+  const [txShares, setTxShares] = useState('1');
+  const [txPrice, setTxPrice] = useState('');
+  const [txFee, setTxFee] = useState('0');
+  const [txNotes, setTxNotes] = useState('');
+
+  // CSV Import state
+  const [csvText, setCsvText] = useState(
+    'symbol,name,assetType,shares,avgCostPerShareCents,latestPriceCents\nVOO,Vanguard S&P 500,etf,10,45000,48000\nETH,Ethereum,crypto,2.5,250000,280000'
+  );
+  const [csvResult, setCsvResult] = useState<CsvImportResponse | null>(null);
+
+  const fetchInvestments = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [pRes, aRes, tRes] = await Promise.all([
+        fetch('/api/investments/portfolio'),
+        fetch('/api/investments/assets'),
+        fetch('/api/investments/transactions'),
+      ]);
+
+      if (pRes.ok) {
+        const { data: pJson } = await safeParseJson<ApiSuccessResponse<InvestmentPortfolioSummary>>(pRes);
+        if (pJson?.data) setPortfolio(pJson.data);
+      }
+      if (aRes.ok) {
+        const { data: aJson } = await safeParseJson<ApiSuccessResponse<InvestmentAssetData[]>>(aRes);
+        if (aJson?.data) {
+          setAssets(aJson.data);
+          if (aJson.data.length > 0 && !selectedAssetId) {
+            setSelectedAssetId(aJson.data[0].id);
+            setTxAssetId(aJson.data[0].id);
+          }
+        }
+      }
+      if (tRes.ok) {
+        const { data: tJson } = await safeParseJson<ApiSuccessResponse<InvestmentTransactionData[]>>(tRes);
+        if (tJson?.data) setTransactions(tJson.data);
+      }
+    } catch {
+      addToast('Error loading investments', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast, selectedAssetId]);
+
+  useEffect(() => {
+    fetchInvestments();
+  }, [fetchInvestments]);
+
+  const handleCreateAsset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sym.trim() || !name.trim()) return;
+
+    try {
+      setSubmitting(true);
+      const costCents = avgCost ? parseMoney(avgCost) : 0;
+      const priceCents = price ? parseMoney(price) : 0;
+
+      const res = await fetch('/api/investments/assets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: sym.trim().toUpperCase(),
+          name: name.trim(),
+          assetType: type,
+          shares: shares || '0',
+          avgCostBasisCents: costCents,
+          latestPriceCents: priceCents,
+        }),
+      });
+
+      if (!res.ok) {
+        const { data: errJson } = await safeParseJson<{ error?: string }>(res);
+        throw new Error(errJson?.error || 'Failed to create asset');
+      }
+
+      addToast('Asset added to portfolio', 'success');
+      setIsAssetModalOpen(false);
+      setSym('');
+      setName('');
+      setShares('1');
+      setAvgCost('');
+      setPrice('');
+      fetchInvestments();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Error creating asset', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRecordQuote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAssetId || !newQuotePrice) return;
+
+    try {
+      setSubmitting(true);
+      const priceCents = parseMoney(newQuotePrice);
+      const res = await fetch('/api/investments/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId: selectedAssetId,
+          priceCents,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to record quote');
+      addToast('Price quote recorded', 'success');
+      setIsQuoteModalOpen(false);
+      setNewQuotePrice('');
+      fetchInvestments();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Error recording quote', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRecordTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!txAssetId) return;
+
+    try {
+      setSubmitting(true);
+      const priceCents = txPrice ? parseMoney(txPrice) : 0;
+      const feeCents = txFee ? parseMoney(txFee) : 0;
+
+      const res = await fetch('/api/investments/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId: txAssetId,
+          type: txType,
+          date: txDate,
+          shares: txShares || '0',
+          pricePerUnitCents: priceCents,
+          feeCents,
+          notes: txNotes || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const { data: errJson } = await safeParseJson<{ error?: string }>(res);
+        throw new Error(errJson?.error || 'Failed to record transaction');
+      }
+
+      addToast(`Recorded ${txType.toUpperCase()} transaction`, 'success');
+      setIsTransactionModalOpen(false);
+      setTxShares('1');
+      setTxPrice('');
+      setTxFee('0');
+      setTxNotes('');
+      fetchInvestments();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Transaction error', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleProcessCsv = async (dryRun: boolean) => {
+    try {
+      setSubmitting(true);
+      const lines = csvText.trim().split('\n').filter(Boolean);
+      if (lines.length <= 1) {
+        throw new Error('CSV text must contain headers and at least one data row');
+      }
+
+      const headers = lines[0].split(',').map((h) => h.trim());
+      const rows = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map((c) => c.trim());
+        const rowObj: Record<string, unknown> = {};
+        headers.forEach((h, idx) => {
+          const val = cols[idx];
+          if (h === 'avgCostPerShareCents' || h === 'latestPriceCents') {
+            rowObj[h] = parseInt(val, 10);
+          } else {
+            rowObj[h] = val;
+          }
+        });
+        rows.push(rowObj);
+      }
+
+      const res = await fetch('/api/investments/import/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun, rows }),
+      });
+
+      const { data: json } = await safeParseJson<ApiSuccessResponse<CsvImportResponse>>(res);
+      if (json?.data) {
+        setCsvResult(json.data);
+      }
+
+      if (!dryRun && json.data.validCount > 0) {
+        addToast(`Successfully imported ${json.data.validCount} holdings`, 'success');
+        setIsCsvModalOpen(false);
+        fetchInvestments();
+      }
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'CSV processing error', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return <LoadingState message="Calculating portfolio valuations & allocations..." />;
+  }
+
+  const portfolioValueCents = portfolio?.totalPortfolioValueCents ?? 0;
+  const costBasisCents = portfolio?.totalCostBasisCents ?? 0;
+  const gainLossCents = portfolio?.totalUnrealizedGainLossCents ?? 0;
+  const gainLossPct = portfolio?.totalUnrealizedGainLossPercentage ?? 0;
+  const realizedGainCents = portfolio?.totalRealizedGainLossCents ?? 0;
+  const totalDividendsCents = portfolio?.totalDividendsCents ?? 0;
+  const isPositiveGain = gainLossCents >= 0;
+
+  return (
+    <div className="space-y-6 animate-fade-up">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
+            Investments & Portfolio
+          </h1>
+          <p className="text-xs text-foreground/60 mt-0.5">
+            Fractional share scaling (10⁻⁶), zero floating-point drift, buy/sell trades, and CSV archive
+          </p>
+        </div>
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2 w-full sm:w-auto">
+          <a
+            href="/api/investments/export/csv"
+            download
+            className="min-h-[40px] sm:min-h-[32px] px-3 text-xs font-semibold bg-secondary/80 text-secondary-foreground rounded-xl border border-border/80 hover:bg-secondary inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+          >
+            <IconFileText size={13} />
+            <span>Export CSV</span>
+          </a>
+          <Button onClick={() => setIsCsvModalOpen(true)} variant="secondary" size="sm" className="w-full sm:w-auto justify-center">
+            <IconFileText size={13} />
+            <span>Import CSV</span>
+          </Button>
+          <Button
+            onClick={() => {
+              if (assets.length > 0) {
+                setTxAssetId(assets[0].id);
+                setIsTransactionModalOpen(true);
+              } else {
+                addToast('Add an asset first before recording transactions', 'info');
+              }
+            }}
+            variant="secondary"
+            size="sm"
+            className="w-full sm:w-auto justify-center"
+          >
+            <IconRefreshCw size={13} />
+            <span>Record Trade</span>
+          </Button>
+          <Button onClick={() => setIsQuoteModalOpen(true)} variant="secondary" size="sm" className="w-full sm:w-auto justify-center">
+            <IconTrendingUp size={13} />
+            <span>Quote</span>
+          </Button>
+          <Button onClick={() => setIsAssetModalOpen(true)} size="sm" className="col-span-2 sm:col-span-1 w-full sm:w-auto justify-center">
+            <IconPlus size={13} />
+            <span>Add Asset</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Portfolio Metrics Cockpit with 3D Depth */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+        <Card3D
+          maxTilt={6}
+          className="p-4 bg-card/75 backdrop-blur-md border border-border/80 rounded-2xl shadow-xs hover:shadow-md space-y-1.5 glass-inner transition-all duration-300"
+        >
+          <span className="text-[10px] font-mono font-bold text-foreground/50 uppercase tracking-wider block translate-z-12">
+            Portfolio Value
+          </span>
+          <div className="text-xl font-mono font-extrabold text-foreground tracking-tight translate-z-20">
+            {formatMoney(portfolioValueCents)}
+          </div>
+          <div className="text-[11px] text-foreground/50 font-mono translate-z-12">{assets.length} held positions</div>
+        </Card3D>
+
+        <Card3D
+          maxTilt={6}
+          className="p-4 bg-card/75 backdrop-blur-md border border-border/80 rounded-2xl shadow-xs hover:shadow-md space-y-1.5 glass-inner transition-all duration-300"
+        >
+          <span className="text-[10px] font-mono font-bold text-foreground/50 uppercase tracking-wider block translate-z-12">
+            Total Cost Basis
+          </span>
+          <div className="text-xl font-mono font-extrabold text-foreground tracking-tight translate-z-20">
+            {formatMoney(costBasisCents)}
+          </div>
+          <div className="text-[11px] text-foreground/50 translate-z-12">Invested principal</div>
+        </Card3D>
+
+        <Card3D
+          maxTilt={6}
+          className="p-4 bg-card/75 backdrop-blur-md border border-border/80 rounded-2xl shadow-xs hover:shadow-md space-y-1.5 glass-inner transition-all duration-300"
+        >
+          <span className="text-[10px] font-mono font-bold text-foreground/50 uppercase tracking-wider block translate-z-12">
+            Unrealized P&L
+          </span>
+          <div
+            className={clsx(
+              'text-xl font-mono font-extrabold tracking-tight translate-z-20',
+              isPositiveGain ? 'text-emerald-500' : 'text-rose-500'
+            )}
+          >
+            {isPositiveGain ? '+' : ''}
+            {formatMoney(gainLossCents)}
+          </div>
+          <div
+            className={clsx(
+              'text-[11px] font-mono font-semibold translate-z-12',
+              isPositiveGain ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+            )}
+          >
+            {isPositiveGain ? '+' : ''}
+            {gainLossPct}% open return
+          </div>
+        </Card3D>
+
+        <Card3D
+          maxTilt={6}
+          className="p-4 bg-card/75 backdrop-blur-md border border-border/80 rounded-2xl shadow-xs hover:shadow-md space-y-1.5 glass-inner transition-all duration-300"
+        >
+          <span className="text-[10px] font-mono font-bold text-foreground/50 uppercase tracking-wider block translate-z-12">
+            Realized P&L
+          </span>
+          <div
+            className={clsx(
+              'text-xl font-mono font-extrabold tracking-tight translate-z-20',
+              realizedGainCents >= 0 ? 'text-emerald-500' : 'text-rose-500'
+            )}
+          >
+            {realizedGainCents >= 0 ? '+' : ''}
+            {formatMoney(realizedGainCents)}
+          </div>
+          <div className="text-[11px] text-foreground/50 translate-z-12">From closed positions</div>
+        </Card3D>
+
+        <Card3D
+          maxTilt={6}
+          className="p-4 bg-card/75 backdrop-blur-md border border-border/80 rounded-2xl shadow-xs hover:shadow-md space-y-1.5 glass-inner transition-all duration-300"
+        >
+          <span className="text-[10px] font-mono font-bold text-primary uppercase tracking-wider block translate-z-12">
+            Dividends Income
+          </span>
+          <div className="text-xl font-mono font-extrabold text-primary tracking-tight translate-z-20">
+            {formatMoney(totalDividendsCents)}
+          </div>
+          <div className="text-[11px] text-foreground/50 translate-z-12">Total cash payouts</div>
+        </Card3D>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-border pb-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
+        <button
+          onClick={() => setActiveTab('holdings')}
+          className={clsx(
+            'min-h-[44px] sm:min-h-[36px] px-3.5 py-2 text-xs font-bold rounded-token transition-colors whitespace-nowrap shrink-0 flex items-center touch-manipulation cursor-pointer',
+            activeTab === 'holdings'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-foreground/70 hover:bg-muted'
+          )}
+        >
+          Positions ({assets.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('transactions')}
+          className={clsx(
+            'min-h-[44px] sm:min-h-[36px] px-3.5 py-2 text-xs font-bold rounded-token transition-colors whitespace-nowrap shrink-0 flex items-center touch-manipulation cursor-pointer',
+            activeTab === 'transactions'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-foreground/70 hover:bg-muted'
+          )}
+        >
+          Transactions Ledger ({transactions.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('allocation')}
+          className={clsx(
+            'min-h-[44px] sm:min-h-[36px] px-3.5 py-2 text-xs font-bold rounded-token transition-colors whitespace-nowrap shrink-0 flex items-center touch-manipulation cursor-pointer',
+            activeTab === 'allocation'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-foreground/70 hover:bg-muted'
+          )}
+        >
+          Asset Allocation
+        </button>
+      </div>
+
+      {/* Tab: Holdings */}
+      {activeTab === 'holdings' && (
+        <div className="bg-card border border-border rounded-token overflow-hidden shadow-xs">
+          <div className="p-3 border-b border-border bg-muted/20 font-bold text-xs uppercase tracking-wider text-foreground">
+            Holdings & Valuations
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-muted/40 border-b border-border text-foreground/70 uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th className="py-2.5 px-4 font-semibold">Asset</th>
+                  <th className="py-2.5 px-4 font-semibold">Type</th>
+                  <th className="py-2.5 px-4 font-semibold">Shares Held</th>
+                  <th className="py-2.5 px-4 font-semibold">Avg Cost</th>
+                  <th className="py-2.5 px-4 font-semibold">Latest Price</th>
+                  <th className="py-2.5 px-4 font-semibold">Market Value</th>
+                  <th className="py-2.5 px-4 font-semibold text-right">Unrealized P&L</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {assets.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-foreground/50">
+                      No holdings in your portfolio yet. Click &quot;+ Add Asset&quot; or &quot;Import CSV&quot; to begin.
+                    </td>
+                  </tr>
+                ) : (
+                  assets.map((asset) => {
+                    const isGain = asset.unrealizedGainLossCents >= 0;
+                    return (
+                      <tr key={asset.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="py-3 px-4 font-bold text-foreground">
+                          <div>{asset.symbol}</div>
+                          <div className="text-[11px] font-normal text-foreground/60 truncate max-w-xs">
+                            {asset.name}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 bg-muted rounded font-semibold text-[10px] uppercase tracking-wider text-foreground/70">
+                            {asset.assetType}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-mono font-medium text-foreground">
+                          {asset.sharesFormatted}
+                        </td>
+                        <td className="py-3 px-4 text-foreground/70 font-mono">
+                          {formatMoney(asset.avgCostBasisCents)}
+                        </td>
+                        <td className="py-3 px-4 text-foreground font-mono font-medium">
+                          {formatMoney(asset.latestPriceCents)}
+                        </td>
+                        <td className="py-3 px-4 font-extrabold text-foreground font-mono">
+                          {formatMoney(asset.totalMarketValueCents)}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div
+                            className={clsx(
+                              'font-bold font-mono',
+                              isGain ? 'text-emerald-500' : 'text-rose-500'
+                            )}
+                          >
+                            {isGain ? '+' : ''}
+                            {formatMoney(asset.unrealizedGainLossCents)}
+                          </div>
+                          <div
+                            className={clsx(
+                              'text-[10px]',
+                              isGain ? 'text-emerald-500' : 'text-rose-500'
+                            )}
+                          >
+                            {isGain ? '+' : ''}
+                            {asset.unrealizedGainLossPercentage}%
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Transactions */}
+      {activeTab === 'transactions' && (
+        <div className="bg-card border border-border rounded-token overflow-hidden shadow-xs">
+          <div className="p-3 border-b border-border bg-muted/20 font-bold text-xs uppercase tracking-wider text-foreground">
+            Investment Transactions History
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-muted/40 border-b border-border text-foreground/70 uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th className="py-2.5 px-4 font-semibold">Date</th>
+                  <th className="py-2.5 px-4 font-semibold">Symbol</th>
+                  <th className="py-2.5 px-4 font-semibold">Type</th>
+                  <th className="py-2.5 px-4 font-semibold">Shares</th>
+                  <th className="py-2.5 px-4 font-semibold">Price</th>
+                  <th className="py-2.5 px-4 font-semibold">Total Amount</th>
+                  <th className="py-2.5 px-4 font-semibold">Fee</th>
+                  <th className="py-2.5 px-4 font-semibold text-right">Realized Gain</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {transactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-foreground/50">
+                      No transactions recorded yet. Click &quot;Record Trade&quot; above to log buy/sell orders.
+                    </td>
+                  </tr>
+                ) : (
+                  transactions.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-3 px-4 font-mono text-foreground/70">{tx.date}</td>
+                      <td className="py-3 px-4 font-bold text-foreground">{tx.symbol}</td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={clsx(
+                            'px-2 py-0.5 rounded font-semibold text-[10px] uppercase tracking-wider',
+                            tx.type === 'buy' && 'bg-emerald-500/10 text-emerald-500',
+                            tx.type === 'sell' && 'bg-rose-500/10 text-rose-500',
+                            tx.type === 'dividend' && 'bg-sky-500/10 text-sky-500',
+                            tx.type === 'fee' && 'bg-amber-500/10 text-amber-500'
+                          )}
+                        >
+                          {tx.type}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-mono">{tx.sharesFormatted}</td>
+                      <td className="py-3 px-4 font-mono">{formatMoney(tx.pricePerUnitCents)}</td>
+                      <td className="py-3 px-4 font-bold font-mono">{formatMoney(tx.totalAmountCents)}</td>
+                      <td className="py-3 px-4 font-mono text-foreground/60">{formatMoney(tx.feeCents)}</td>
+                      <td className="py-3 px-4 text-right font-mono">
+                        {tx.realizedGainCents !== null ? (
+                          <span
+                            className={
+                              tx.realizedGainCents >= 0 ? 'text-emerald-500 font-bold' : 'text-rose-500 font-bold'
+                            }
+                          >
+                            {tx.realizedGainCents >= 0 ? '+' : ''}
+                            {formatMoney(tx.realizedGainCents)}
+                          </span>
+                        ) : (
+                          <span className="text-foreground/40">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Allocation */}
+      {activeTab === 'allocation' && (
+        <div className="p-5 bg-card border border-border rounded-token shadow-xs space-y-4">
+          <h3 className="text-sm font-bold text-foreground">Asset Class Allocation</h3>
+          {portfolio && portfolio.allocation.length > 0 ? (
+            <div className="space-y-3">
+              <div className="flex h-4 w-full rounded-full overflow-hidden bg-muted">
+                {portfolio.allocation.map((item, idx) => {
+                  const colors = ['bg-primary', 'bg-sky-500', 'bg-amber-500', 'bg-emerald-500', 'bg-violet-500'];
+                  return (
+                    <div
+                      key={item.assetType}
+                      className={clsx('h-full', colors[idx % colors.length])}
+                      style={{ width: `${item.percentage}%` }}
+                      title={`${item.assetType}: ${item.percentage}% (${formatMoney(item.marketValueCents)})`}
+                    />
+                  );
+                })}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2">
+                {portfolio.allocation.map((item) => (
+                  <div key={item.assetType} className="p-3 bg-muted/20 border border-border rounded-token space-y-1">
+                    <div className="flex items-center justify-between text-xs font-semibold uppercase text-foreground">
+                      <span>{item.assetType}</span>
+                      <span>{item.percentage}%</span>
+                    </div>
+                    <div className="text-base font-extrabold text-foreground font-mono">
+                      {formatMoney(item.marketValueCents)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-xs text-foreground/50">
+              No holdings available for allocation calculation.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Record Transaction Modal */}
+      <Modal
+        isOpen={isTransactionModalOpen}
+        onClose={() => setIsTransactionModalOpen(false)}
+        title="Record Investment Trade"
+        size="md"
+      >
+        <form onSubmit={handleRecordTransaction} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-foreground/75 mb-1.5">
+                Select Asset <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={txAssetId}
+                onChange={(e) => setTxAssetId(e.target.value)}
+                className="w-full px-3.5 py-2.5 sm:py-2 text-base sm:text-xs min-h-[44px] sm:min-h-[38px] bg-card border border-border/80 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer font-mono touch-manipulation"
+              >
+                {assets.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.symbol} ({a.sharesFormatted} units)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-foreground/75 mb-1.5">
+                Transaction Type
+              </label>
+              <select
+                value={txType}
+                onChange={(e) => setTxType(e.target.value as InvestmentTransactionType)}
+                className="w-full px-3.5 py-2.5 sm:py-2 text-base sm:text-xs min-h-[44px] sm:min-h-[38px] bg-card border border-border/80 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer touch-manipulation"
+              >
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+                <option value="dividend">Dividend</option>
+                <option value="fee">Fee</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-foreground/75 mb-1.5">Date</label>
+              <input
+                type="date"
+                required
+                value={txDate}
+                onChange={(e) => setTxDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 sm:py-2 text-base sm:text-xs min-h-[44px] sm:min-h-[38px] bg-card border border-border/80 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono cursor-pointer touch-manipulation"
+              />
+            </div>
+            <Input
+              label="Shares Quantity"
+              required
+              value={txShares}
+              onChange={(e) => setTxShares(e.target.value)}
+              placeholder="1.0"
+              className="font-mono"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Price per Unit (₹)"
+              type="number"
+              step="0.01"
+              required
+              value={txPrice}
+              onChange={(e) => setTxPrice(e.target.value)}
+              placeholder="150.00"
+              className="font-mono"
+            />
+            <Input
+              label="Fee (₹)"
+              type="number"
+              step="0.01"
+              value={txFee}
+              onChange={(e) => setTxFee(e.target.value)}
+              placeholder="0.00"
+              className="font-mono"
+            />
+          </div>
+
+          <Input
+            label="Notes / Order ID"
+            value={txNotes}
+            onChange={(e) => setTxNotes(e.target.value)}
+            placeholder="e.g. Limit order filled"
+          />
+
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-border/60">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsTransactionModalOpen(false)}
+              disabled={submitting}
+              size="sm"
+              className="flex-1 sm:flex-initial"
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
+              {submitting ? 'Recording...' : 'Record Transaction'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* New Asset Modal */}
+      <Modal
+        isOpen={isAssetModalOpen}
+        onClose={() => setIsAssetModalOpen(false)}
+        title="Add Portfolio Holding"
+        size="md"
+      >
+        <form onSubmit={handleCreateAsset} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Symbol"
+              required
+              value={sym}
+              onChange={(e) => setSym(e.target.value.toUpperCase())}
+              placeholder="e.g. AAPL, BTC, VTI"
+              className="font-mono uppercase"
+              autoFocus
+            />
+            <div>
+              <label className="block text-xs font-semibold text-foreground/75 mb-1.5">
+                Asset Class
+              </label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as AssetType)}
+                className="w-full px-3.5 py-2.5 sm:py-2 text-base sm:text-xs min-h-[44px] sm:min-h-[38px] bg-card border border-border/80 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer touch-manipulation"
+              >
+                <option value="stock">Stock</option>
+                <option value="mutual_fund">Mutual Fund</option>
+                <option value="etf">ETF</option>
+                <option value="crypto">Crypto</option>
+                <option value="real_estate">Real Estate</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <Input
+            label="Asset Name"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Apple Inc."
+          />
+
+          <Input
+            label="Quantity / Units (up to 6 decimals)"
+            required
+            value={shares}
+            onChange={(e) => setShares(e.target.value)}
+            placeholder="1.5"
+            className="font-mono"
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Avg Cost Per Unit (₹)"
+              type="number"
+              step="0.01"
+              value={avgCost}
+              onChange={(e) => setAvgCost(e.target.value)}
+              placeholder="150.00"
+              className="font-mono"
+            />
+            <Input
+              label="Latest Price (₹)"
+              type="number"
+              step="0.01"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="180.00"
+              className="font-mono"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-border/60">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsAssetModalOpen(false)}
+              disabled={submitting}
+              size="sm"
+              className="flex-1 sm:flex-initial"
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
+              {submitting ? 'Adding...' : 'Add Holding'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Record Quote Modal */}
+      <Modal
+        isOpen={isQuoteModalOpen}
+        onClose={() => setIsQuoteModalOpen(false)}
+        title="Record Price Quote"
+        size="md"
+      >
+        <form onSubmit={handleRecordQuote} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-foreground/75 mb-1.5">
+              Select Asset
+            </label>
+            <select
+              value={selectedAssetId}
+              onChange={(e) => setSelectedAssetId(e.target.value)}
+              className="w-full px-3.5 py-2.5 sm:py-2 text-base sm:text-xs min-h-[44px] sm:min-h-[38px] bg-card border border-border/80 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer font-mono touch-manipulation"
+            >
+              {assets.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.symbol} - {a.name} (Current: {formatMoney(a.latestPriceCents)})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <Input
+            label="New Price Quote (₹)"
+            type="number"
+            step="0.01"
+            required
+            value={newQuotePrice}
+            onChange={(e) => setNewQuotePrice(e.target.value)}
+            placeholder="0.00"
+            className="font-mono"
+            autoFocus
+          />
+
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-border/60">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsQuoteModalOpen(false)}
+              disabled={submitting}
+              size="sm"
+              className="flex-1 sm:flex-initial"
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
+              {submitting ? 'Recording...' : 'Record Quote'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* CSV Import Modal */}
+      <Modal
+        isOpen={isCsvModalOpen}
+        onClose={() => setIsCsvModalOpen(false)}
+        title="CSV Portfolio Importer"
+        description="Bulk import holdings with pre-flight dry-run validation"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-foreground/75 mb-1.5">
+              CSV Content
+            </label>
+            <textarea
+              rows={7}
+              value={csvText}
+              onChange={(e) => setCsvText(e.target.value)}
+              className="w-full p-3 font-mono text-base sm:text-xs bg-background border border-border/80 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary leading-relaxed touch-manipulation min-h-[140px]"
+            />
+          </div>
+
+          {csvResult && (
+            <div className="p-3.5 bg-card/60 border border-border/80 rounded-xl space-y-2 text-xs">
+              <div className="font-bold flex items-center justify-between">
+                <span>Validation Summary:</span>
+                <span className="font-mono">
+                  {csvResult.validCount} Valid | {csvResult.errorCount} Errors
+                </span>
+              </div>
+              {csvResult.issues.length > 0 && (
+                <div className="space-y-1 text-rose-500 font-mono text-[11px] max-h-32 overflow-y-auto">
+                  {csvResult.issues.map((iss, i) => (
+                    <div key={i}>
+                      Row {iss.row}: {iss.message}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-4 border-t border-border/60">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => handleProcessCsv(true)}
+              disabled={submitting}
+              size="sm"
+              className="w-full sm:w-auto"
+            >
+              {submitting ? 'Checking...' : 'Dry-Run Validate'}
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setIsCsvModalOpen(false)}
+                disabled={submitting}
+                size="sm"
+                className="flex-1 sm:flex-initial"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleProcessCsv(false)}
+                disabled={submitting}
+                size="sm"
+                className="flex-1 sm:flex-initial"
+              >
+                {submitting ? 'Importing...' : 'Commit Import'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+

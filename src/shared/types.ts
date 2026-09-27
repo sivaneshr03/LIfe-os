@@ -65,6 +65,8 @@ export interface UserPreferencesData {
   borderRadius: BorderRadius;
   reducedMotion: ReducedMotion;
   sidebarCollapsed: boolean;
+  timezone?: string;
+  baseCurrency?: string;
 }
 
 export interface AuthSessionData {
@@ -91,3 +93,10 @@ export interface InviteData {
   usedAt?: number | null;
   createdAt: number;
 }
+
+export * from './platformTypes';
+export * from './productivityTypes';
+export * from './trackerTypes';
+export * from './financeTypes';
+export * from './investmentTypes';
+

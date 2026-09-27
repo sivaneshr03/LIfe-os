@@ -3,7 +3,10 @@ import { useAuthStore } from '../../stores/authStore';
 import { useToast } from '../ui/Toast';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { IconLock, IconShield } from '../ui/Icons';
 import type { ApiResponse, AuthSessionData } from '../../../shared/types';
+
+import { safeParseJson } from '../../lib/api';
 
 export function AuthView() {
   const { setupRequired, setUser } = useAuthStore();
@@ -40,9 +43,9 @@ export function AuthView() {
         body: JSON.stringify(payload),
       });
 
-      const json = (await res.json()) as ApiResponse<AuthSessionData>;
+      const { data: json, error: parseError } = await safeParseJson<ApiResponse<AuthSessionData>>(res);
 
-      if (json.success) {
+      if (res.ok && json && json.success) {
         setUser(json.data.user);
         toast(
           setupRequired
@@ -53,49 +56,63 @@ export function AuthView() {
           'success'
         );
       } else {
-        setError(json.error.message);
+        const errorMsg =
+          json && !json.success && json.error?.message
+            ? json.error.message
+            : parseError || `Authentication request failed (${res.status}). Ensure backend worker is running.`;
+        setError(errorMsg);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed. Please check network.');
+      setError(
+        err instanceof Error && !err.message.includes('Unexpected end')
+          ? err.message
+          : 'Backend service unreachable. Please ensure the backend worker (npm run dev:server) is running on port 8787.'
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <div className="w-full max-w-md bg-card text-card-foreground border border-border rounded-token shadow-2xl p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
-        <div className="text-center space-y-1.5">
-          <div className="w-12 h-12 rounded-token bg-primary text-primary-foreground mx-auto flex items-center justify-center font-extrabold text-xl shadow-md select-none">
+    <div className="min-h-dvh flex items-center justify-center p-4 sm:p-6 bg-background relative overflow-hidden">
+      {/* Ambient background light gradients */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="relative w-full max-w-md bg-card/90 backdrop-blur-2xl text-card-foreground border border-border/80 rounded-2xl sm:rounded-3xl shadow-float p-5 sm:p-8 space-y-6 glass-inner animate-scale-in">
+        <div className="text-center space-y-2">
+          <div className="w-12 h-12 rounded-2xl bg-primary text-primary-foreground mx-auto flex items-center justify-center font-extrabold text-xl shadow-md shadow-primary/25 select-none animate-breathe">
             L
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
-            {setupRequired
-              ? 'Initialize LifeOS'
-              : mode === 'invite'
-              ? 'Claim Your LifeOS Invite'
-              : 'Sign in to LifeOS'}
-          </h1>
-          <p className="text-xs text-foreground/60 max-w-xs mx-auto">
-            {setupRequired
-              ? 'Welcome! Create the initial primary Administrator account for your private instance.'
-              : mode === 'invite'
-              ? 'Enter your invitation code and configure your account credentials.'
-              : 'Private personal productivity and household management system.'}
-          </p>
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+              {setupRequired
+                ? 'Initialize LifeOS'
+                : mode === 'invite'
+                ? 'Claim Your LifeOS Invite'
+                : 'Sign in to LifeOS'}
+            </h1>
+            <p className="text-xs text-foreground/60 max-w-xs mx-auto mt-1 leading-relaxed">
+              {setupRequired
+                ? 'Create the primary Administrator account for your private household instance.'
+                : mode === 'invite'
+                ? 'Enter your invitation code and configure your credentials.'
+                : 'Private personal intelligence, ledger, and household management.'}
+            </p>
+          </div>
         </div>
 
         {!setupRequired && (
-          <div className="flex border border-border rounded-token p-1 bg-muted/40">
+          <div className="flex border border-border/80 rounded-xl p-1 bg-muted/30">
             <button
               type="button"
               onClick={() => {
                 setMode('login');
                 setError(null);
               }}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-token transition-all ${
+              className={`flex-1 min-h-[42px] sm:min-h-[36px] py-2 px-3 text-xs font-semibold rounded-lg transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
                 mode === 'login'
-                  ? 'bg-card text-foreground shadow-sm'
+                  ? 'bg-card text-foreground shadow-xs font-bold'
                   : 'text-foreground/60 hover:text-foreground'
               }`}
             >
@@ -107,13 +124,13 @@ export function AuthView() {
                 setMode('invite');
                 setError(null);
               }}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-token transition-all ${
+              className={`flex-1 min-h-[42px] sm:min-h-[36px] py-2 px-3 text-xs font-semibold rounded-lg transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
                 mode === 'invite'
-                  ? 'bg-card text-foreground shadow-sm'
+                  ? 'bg-card text-foreground shadow-xs font-bold'
                   : 'text-foreground/60 hover:text-foreground'
               }`}
             >
-              Have an Invite Code?
+              Claim Invite Code
             </button>
           </div>
         )}
@@ -121,7 +138,7 @@ export function AuthView() {
         {error && (
           <div
             role="alert"
-            className="p-3.5 rounded-token bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-medium"
+            className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-medium animate-fade-in"
           >
             {error}
           </div>
@@ -202,8 +219,9 @@ export function AuthView() {
           </Button>
         </form>
 
-        <footer className="text-center text-[11px] text-foreground/40 pt-4 border-t border-border">
-          <span>Protected Edge Session • HttpOnly Cookies</span>
+        <footer className="text-center text-[11px] text-foreground/40 pt-4 border-t border-border/60 flex items-center justify-center gap-1.5">
+          <IconLock size={12} className="text-foreground/40" />
+          <span>Protected Edge Session • HttpOnly Lax Cookies</span>
         </footer>
       </div>
     </div>

@@ -30,6 +30,7 @@ settingsRouter.get('/preferences', async (c) => {
       borderRadius: 'medium',
       reducedMotion: 'system',
       sidebarCollapsed: 0,
+      baseCurrency: 'INR',
       updatedAt: new Date(),
     });
     prefs = (await db.select().from(userPreferences).where(eq(userPreferences.userId, user.id)).limit(1))[0]!;
@@ -43,6 +44,8 @@ settingsRouter.get('/preferences', async (c) => {
     borderRadius: prefs.borderRadius as 'none' | 'small' | 'medium' | 'large',
     reducedMotion: prefs.reducedMotion as 'system' | 'reduce' | 'no-preference',
     sidebarCollapsed: Boolean(prefs.sidebarCollapsed),
+    timezone: prefs.timezone || 'UTC',
+    baseCurrency: prefs.baseCurrency || 'INR',
   };
 
   return c.json<ApiSuccessResponse<UserPreferencesData>>({
@@ -67,6 +70,8 @@ settingsRouter.patch('/preferences', zValidator('json', updatePreferencesSchema)
   if (input.borderRadius !== undefined) updateValues.borderRadius = input.borderRadius;
   if (input.reducedMotion !== undefined) updateValues.reducedMotion = input.reducedMotion;
   if (input.sidebarCollapsed !== undefined) updateValues.sidebarCollapsed = input.sidebarCollapsed ? 1 : 0;
+  if (input.timezone !== undefined) updateValues.timezone = input.timezone;
+  if (input.baseCurrency !== undefined) updateValues.baseCurrency = input.baseCurrency;
 
   await db
     .update(userPreferences)
@@ -83,6 +88,8 @@ settingsRouter.patch('/preferences', zValidator('json', updatePreferencesSchema)
     borderRadius: updated.borderRadius as 'none' | 'small' | 'medium' | 'large',
     reducedMotion: updated.reducedMotion as 'system' | 'reduce' | 'no-preference',
     sidebarCollapsed: Boolean(updated.sidebarCollapsed),
+    timezone: updated.timezone || 'UTC',
+    baseCurrency: updated.baseCurrency || 'INR',
   };
 
   return c.json<ApiSuccessResponse<UserPreferencesData>>({

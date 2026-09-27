@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import type { PublicUser, AuthSessionData, ApiResponse } from '../../shared/types';
 import { useThemeStore } from './themeStore';
 
+import { safeParseJson } from '../lib/api';
+
 interface AuthState {
   user: PublicUser | null;
   isAuthenticated: boolean;
@@ -26,8 +28,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const res = await fetch('/api/auth/me');
       if (res.ok) {
-        const json = (await res.json()) as ApiResponse<AuthSessionData>;
-        if (json.success) {
+        const { data: json } = await safeParseJson<ApiResponse<AuthSessionData>>(res);
+        if (json && json.success) {
           set({
             user: json.data.user,
             isAuthenticated: true,
@@ -42,8 +44,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Not authenticated, check if first-time bootstrap setup is required
       const statusRes = await fetch('/api/auth/status');
       if (statusRes.ok) {
-        const statusJson = (await statusRes.json()) as ApiResponse<{ setupRequired: boolean }>;
-        if (statusJson.success) {
+        const { data: statusJson } = await safeParseJson<ApiResponse<{ setupRequired: boolean }>>(statusRes);
+        if (statusJson && statusJson.success) {
           set({
             user: null,
             isAuthenticated: false,

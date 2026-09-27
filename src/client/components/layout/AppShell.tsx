@@ -11,14 +11,16 @@ export interface AppShellProps {
 
 export function AppShell({ currentView, onNavigate, children }: AppShellProps) {
   return (
-    <div className="flex min-h-screen bg-background text-foreground antialiased transition-colors">
+    <div className="relative flex min-h-dvh bg-background text-foreground antialiased transition-colors selection:bg-primary/20 selection:text-primary overflow-x-hidden">
       <Sidebar currentView={currentView} onNavigate={onNavigate} />
 
-      <div className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">
+      <div className="relative z-10 flex-1 flex flex-col min-w-0 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-8">
         <Header currentView={currentView} onNavigate={onNavigate} />
 
-        <main className="flex-1 p-4 md:p-8 max-w-6xl w-full mx-auto overflow-y-auto">
-          {children}
+        <main className="flex-1 p-3.5 sm:p-6 md:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
+          <div key={currentView} className="animate-fade-up">
+            {children}
+          </div>
         </main>
 
         <BottomNav currentView={currentView} onNavigate={onNavigate} />

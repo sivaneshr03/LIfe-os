@@ -1,0 +1,50 @@
+{
+  "name": "LifeOS: Private Household Intelligence",
+  "short_name": "LifeOS",
+  "description": "High-craft personal productivity, finance, health, and life-management web application.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#10b981",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "finance", "lifestyle", "health"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Tasks & Projects",
+      "short_name": "Tasks",
+      "description": "Manage tasks, checklists, and recurring projects",
+      "url": "/tasks",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Finance & Ledger",
+      "short_name": "Finance",
+      "description": "Review accounts, cash flow, debts, and budgets",
+      "url": "/finance",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Notes & Daily Journal",
+      "short_name": "Notes",
+      "description": "Capture thoughts, markdown notes, and daily prompts",
+      "url": "/notes",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Trackers & Habits",
+      "short_name": "Trackers",
+      "description": "Log daily habits, workouts, and metric streaks",
+      "url": "/trackers",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    }
+  ]
+}

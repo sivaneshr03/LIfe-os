@@ -8,6 +8,7 @@ interface ThemeState extends UserPreferencesData {
   setDensity: (density: Density) => void;
   setBorderRadius: (radius: BorderRadius) => void;
   setReducedMotion: (motion: ReducedMotion) => void;
+  setBaseCurrency: (currency: string) => void;
   toggleSidebar: () => void;
   setPreferences: (prefs: Partial<UserPreferencesData>) => void;
   applyToDom: () => void;
@@ -28,10 +29,10 @@ function loadStoredPreferences(): Partial<UserPreferencesData> {
 function saveStoredPreferences(prefs: UserPreferencesData) {
   if (typeof globalThis.localStorage === 'undefined') return;
   try {
-    const { themeMode, accentColor, fontSize, density, borderRadius, reducedMotion, sidebarCollapsed } = prefs;
+    const { themeMode, accentColor, fontSize, density, borderRadius, reducedMotion, sidebarCollapsed, baseCurrency } = prefs;
     globalThis.localStorage.setItem(
       PREFS_STORAGE_KEY,
-      JSON.stringify({ themeMode, accentColor, fontSize, density, borderRadius, reducedMotion, sidebarCollapsed })
+      JSON.stringify({ themeMode, accentColor, fontSize, density, borderRadius, reducedMotion, sidebarCollapsed, baseCurrency })
     );
   } catch {
     // Silently ignore storage errors (e.g. incognito/disabled)
@@ -46,6 +47,7 @@ const defaultPrefs: UserPreferencesData = {
   borderRadius: 'medium',
   reducedMotion: 'system',
   sidebarCollapsed: false,
+  baseCurrency: 'INR',
 };
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
@@ -107,6 +109,11 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   setReducedMotion: (motion) => {
     set({ reducedMotion: motion });
     get().applyToDom();
+    saveStoredPreferences(get());
+  },
+
+  setBaseCurrency: (currency: string) => {
+    set({ baseCurrency: currency });
     saveStoredPreferences(get());
   },
 

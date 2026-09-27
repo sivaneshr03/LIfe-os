@@ -23,6 +23,9 @@
     "APP_NAME": "LifeOS",
     "LOG_LEVEL": "debug"
   },
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
   "env": {
     "preview": {
       "name": "lifeos-app-preview",
