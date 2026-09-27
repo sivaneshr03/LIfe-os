@@ -13,15 +13,15 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "lifeos-db-local",
-      "database_id": "local-lifeos-db-id",
+      "database_name": "lifeos-db",
+      "database_id": "075d8f8d-803e-4d78-9bb8-84e81379f0b3",
       "migrations_dir": "./drizzle"
     }
   ],
   "vars": {
-    "ENVIRONMENT": "local",
+    "ENVIRONMENT": "production",
     "APP_NAME": "LifeOS",
-    "LOG_LEVEL": "debug"
+    "LOG_LEVEL": "info"
   },
   "triggers": {
     "crons": ["* * * * *"]
@@ -48,8 +48,8 @@
       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "lifeos-d1-prod",
-          "database_id": "00000000-0000-0000-0000-000000000002",
+          "database_name": "lifeos-db",
+          "database_id": "075d8f8d-803e-4d78-9bb8-84e81379f0b3",
           "migrations_dir": "./drizzle"
         }
       ],
