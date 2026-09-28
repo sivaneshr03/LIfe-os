@@ -3,6 +3,7 @@ import { clsx } from 'clsx';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { LoadingState, EmptyState } from '../ui/States';
 import { useToast } from '../ui/Toast';
 import {
@@ -27,6 +28,8 @@ export function TasksView() {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<TaskData | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Calendar month state
   const [calendarDate, setCalendarDate] = useState(() => new Date());
@@ -111,20 +114,53 @@ export function TasksView() {
       setTasks((prev) =>
         (Array.isArray(prev) ? prev : []).map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t))
       );
-      toast(nextStatus === 'done' ? 'Task marked complete' : 'Task reopened', 'info');
+
+      if (nextStatus === 'done') {
+        toast.success(`Completed "${task.title}"`, {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              try {
+                await fetch(`/api/tasks/${task.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ status: 'todo' }),
+                });
+                setTasks((prev) =>
+                  (Array.isArray(prev) ? prev : []).map((t) =>
+                    t.id === task.id ? { ...t, status: 'todo' } : t
+                  )
+                );
+                toast.info(`Reopened "${task.title}"`);
+              } catch {
+                toast.error('Failed to undo task completion');
+              }
+            },
+          },
+          duration: 5000,
+        });
+      } else {
+        toast.info('Task reopened');
+      }
     } catch {
-      toast('Error updating task status', 'error');
+      toast.error('Error updating task status');
     }
   };
 
-  const handleDeleteTask = async (id: string) => {
+  const confirmDeleteTask = async () => {
+    if (!taskToDelete) return;
+    const task = taskToDelete;
     try {
-      const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+      setIsDeleting(true);
+      const res = await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete task');
-      setTasks((prev) => (Array.isArray(prev) ? prev : []).filter((t) => t.id !== id));
-      toast('Task removed', 'info');
+      setTasks((prev) => (Array.isArray(prev) ? prev : []).filter((t) => t.id !== task.id));
+      toast.success(`Task "${task.title}" deleted`);
+      setTaskToDelete(null);
     } catch {
-      toast('Error deleting task', 'error');
+      toast.error('Error deleting task');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -336,7 +372,7 @@ export function TasksView() {
 
               <div className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={() => handleDeleteTask(t.id)}
+                  onClick={() => setTaskToDelete(t)}
                   title="Delete task"
                   aria-label={`Delete task ${t.title}`}
                   className="p-1.5 text-foreground/40 hover:text-rose-500 rounded-lg hover:bg-rose-500/10 transition-colors active:scale-90 cursor-pointer"
@@ -349,7 +385,7 @@ export function TasksView() {
         </div>
       ) : viewMode === 'board' ? (
         /* Kanban Board View with horizontal snap on mobile */
-        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto pb-4 sm:pb-0 snap-x snap-mandatory sm:snap-none -mx-4 px-4 sm:mx-0 sm:px-0 no-scrollbar">
+        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto pb-4 sm:pb-0 snap-x snap-mandatory sm:snap-none -mx-3.5 px-3.5 sm:mx-0 sm:px-0 no-scrollbar">
           {(['todo', 'in_progress', 'blocked', 'done'] as const).map((columnStatus) => {
             const columnTasks = filteredTasks.filter((t) => t.status === columnStatus);
             return (
@@ -381,7 +417,10 @@ export function TasksView() {
                             {t.title}
                           </span>
                           <button
-                            onClick={() => handleDeleteTask(t.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTaskToDelete(t);
+                            }}
                             className="text-foreground/30 hover:text-rose-500 p-0.5 rounded cursor-pointer"
                             aria-label="Delete"
                           >
@@ -587,12 +626,27 @@ export function TasksView() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              {submitting ? 'Creating...' : 'Create Task'}
+            <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
+              Create Task
             </Button>
           </div>
         </form>
       </Modal>
+
+      {/* Reusable Confirmation Modal for Destructive Delete */}
+      <ConfirmationModal
+        isOpen={Boolean(taskToDelete)}
+        onClose={() => setTaskToDelete(null)}
+        onConfirm={confirmDeleteTask}
+        isLoading={isDeleting}
+        title="Delete Task"
+        description={
+          taskToDelete
+            ? `Are you sure you want to permanently delete "${taskToDelete.title}"? This task cannot be recovered.`
+            : 'Are you sure you want to permanently delete this task?'
+        }
+        confirmLabel="Delete Task"
+      />
     </div>
   );
 }

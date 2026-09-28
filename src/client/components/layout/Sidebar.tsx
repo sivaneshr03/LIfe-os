@@ -76,7 +76,7 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
         className={twMerge(
           clsx(
             'hidden md:flex flex-col border-r border-border/80 bg-card/85 backdrop-blur-2xl text-card-foreground',
-            'sticky top-0 h-screen max-h-screen z-40 shrink-0 select-none shadow-xs',
+            'sticky top-0 h-dvh max-h-dvh z-40 shrink-0 select-none shadow-xs',
             'transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
             sidebarCollapsed ? 'w-[72px]' : 'w-64'
           )
@@ -131,7 +131,7 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
               onClick={toggleSidebar}
               aria-label="Collapse sidebar (Ctrl+B)"
               title="Collapse sidebar (Ctrl+B)"
-              className="p-1.5 rounded-lg text-foreground/50 hover:text-foreground hover:bg-muted/80 transition-colors focus-visible:ring-2 focus-visible:ring-primary active:scale-95 cursor-pointer"
+              className="p-1.5 rounded-lg min-w-[44px] min-h-[44px] text-foreground/50 hover:text-foreground hover:bg-muted/80 transition-colors focus-visible:ring-2 focus-visible:ring-primary active:scale-95 cursor-pointer"
             >
               <IconChevronLeft size={16} />
             </button>
@@ -280,7 +280,7 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
           />
 
           {/* Drawer Content */}
-          <div className="relative w-72 max-w-[85vw] h-full bg-card/95 backdrop-blur-2xl text-card-foreground border-r border-border/80 flex flex-col shadow-float z-10 animate-slide-right">
+          <div className="relative w-72 max-w-[85vw] h-full bg-card/95 backdrop-blur-2xl text-card-foreground border-r border-border/80 flex flex-col shadow-float z-10 animate-slide-right pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
             {/* Drawer Header */}
             <div className="flex items-center justify-between h-16 px-4 border-b border-border/60">
               <div className="flex items-center gap-3">

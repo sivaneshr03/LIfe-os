@@ -136,7 +136,7 @@ export function DashboardView({ onNavigate }: { onNavigate: (view: string) => vo
       </section>
 
       {/* System Telemetry Strips */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="p-4 rounded-xl border border-border/80 bg-card/70 backdrop-blur-sm space-y-1 shadow-xs hover:shadow-md transition-all duration-300">
           <span className="text-[10px] text-foreground/45 uppercase font-mono font-bold tracking-wider block">
             Edge Engine

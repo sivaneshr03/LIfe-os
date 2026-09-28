@@ -4,11 +4,13 @@ node_modules/
 .pnp.js
 
 # ─── Environment Variables & Secrets ─────────────────────────────────────────
-# Never commit secrets — use .env.example as a safe template instead
+# Never commit secrets — use templates as safe examples
 .env
 .env.*
 !.env.example
 .dev.vars
+.dev.vars.*
+!.dev.vars.example
 
 # ─── Build Outputs ────────────────────────────────────────────────────────────
 dist/
@@ -17,19 +19,24 @@ build/
 .output/
 .vite/
 *.local
+*.tsbuildinfo
 
 # ─── Cloudflare / Wrangler Local State ───────────────────────────────────────
 # Contains local D1 SQLite data, KV state, temp bundles — never commit
 .wrangler/
 
-# ─── Local Database Files ─────────────────────────────────────────────────────
+# ─── Local Database Files & Exports ──────────────────────────────────────────
 *.sqlite
 *.sqlite-journal
 *.sqlite3
 *.db
 backups/
+*backup*.sql
+*.dump.sql
+export*.sql
+*.sql.gz
 
-# ─── Logs & Debug Output ──────────────────────────────────────────────────────
+# ─── Logs & Test Outputs ─────────────────────────────────────────────────────
 *.log
 logs/
 npm-debug.log*
@@ -38,6 +45,8 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 .eslintcache
+coverage/
+.vitest/
 
 # ─── Agent / IDE Session Artifacts ───────────────────────────────────────────
 # Includes LLM transcripts, debug runtime cache, API usage logs
@@ -47,9 +56,13 @@ lerna-debug.log*
 # ─── OS & System Files ───────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
 
 # ─── IDE & Editor Caches ─────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.sublime-project
 *.sublime-workspace
+*.swp
+*.tmp

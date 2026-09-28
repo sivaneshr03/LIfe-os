@@ -13,6 +13,13 @@ export const investmentTransactionTypeEnum = z.enum([
   'transfer_out',
 ]);
 
+const nonNegativeSharesSchema = z.union([z.string(), z.number()]).refine((v) => {
+  if (typeof v === 'number') return !isNaN(v) && isFinite(v) && v >= 0;
+  if (!v || !String(v).trim()) return true;
+  const num = Number(v);
+  return !isNaN(num) && isFinite(num) && num >= 0;
+}, 'Shares must be a valid non-negative number');
+
 export const createInvestmentAssetSchema = z.object({
   symbol: z
     .string()
@@ -23,9 +30,19 @@ export const createInvestmentAssetSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(100, 'Name cannot exceed 100 characters'),
   assetType: assetTypeEnum,
   accountId: z.string().trim().optional().nullable(),
-  shares: z.union([z.string(), z.number()]).optional().default('0'),
-  avgCostBasisCents: z.number().int('Cost basis must be an integer in cents').min(0, 'Cost basis cannot be negative').default(0),
-  latestPriceCents: z.number().int('Price must be an integer in cents').min(0, 'Price cannot be negative').default(0),
+  shares: nonNegativeSharesSchema.optional().default('0'),
+  avgCostBasisCents: z
+    .number()
+    .int('Cost basis must be an integer in cents')
+    .min(0, 'Cost basis cannot be negative')
+    .refine((n) => !isNaN(n) && isFinite(n), 'Invalid cost basis')
+    .default(0),
+  latestPriceCents: z
+    .number()
+    .int('Price must be an integer in cents')
+    .min(0, 'Price cannot be negative')
+    .refine((n) => !isNaN(n) && isFinite(n), 'Invalid price')
+    .default(0),
 });
 
 export const updateInvestmentAssetSchema = z.object({
@@ -39,7 +56,7 @@ export const updateInvestmentAssetSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   assetType: assetTypeEnum.optional(),
   accountId: z.string().trim().optional().nullable(),
-  shares: z.union([z.string(), z.number()]).optional(),
+  shares: nonNegativeSharesSchema.optional(),
   unitsMicro: z.number().int().min(0).optional(),
   avgCostBasisCents: z.number().int().min(0).optional(),
   latestPriceCents: z.number().int().min(0).optional(),
@@ -50,10 +67,20 @@ export const createInvestmentTransactionSchema = z.object({
   accountId: z.string().trim().optional().nullable(),
   type: investmentTransactionTypeEnum,
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be formatted as YYYY-MM-DD'),
-  shares: z.union([z.string(), z.number()]).optional().default('0'),
-  pricePerUnitCents: z.number().int().min(0, 'Price must be non-negative').default(0),
+  shares: nonNegativeSharesSchema.optional().default('0'),
+  pricePerUnitCents: z
+    .number()
+    .int('Price must be an integer in cents')
+    .min(0, 'Price must be non-negative')
+    .refine((n) => !isNaN(n) && isFinite(n), 'Invalid price per unit')
+    .default(0),
   totalAmountCents: z.number().int().min(0, 'Amount must be non-negative').optional(),
-  feeCents: z.number().int().min(0, 'Fee cannot be negative').default(0),
+  feeCents: z
+    .number()
+    .int('Fee must be an integer in cents')
+    .min(0, 'Fee cannot be negative')
+    .refine((n) => !isNaN(n) && isFinite(n), 'Invalid fee')
+    .default(0),
   notes: z.string().trim().max(500).optional().nullable(),
 });
 

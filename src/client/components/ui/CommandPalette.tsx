@@ -175,11 +175,11 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
       role="dialog"
       aria-modal="true"
       aria-label="Universal Command Palette"
-      className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 bg-black/60 dark:bg-black/75 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[calc(4rem+env(safe-area-inset-top,0px))] sm:pt-24 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] bg-black/60 dark:bg-black/75 backdrop-blur-md animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl bg-card border border-border/80 dark:border-white/10 rounded-2xl shadow-float overflow-hidden flex flex-col max-h-[70vh] glass-inner animate-scale-in"
+        className="w-full max-w-xl bg-card border border-border/80 dark:border-white/10 rounded-2xl shadow-float overflow-hidden flex flex-col max-h-[70dvh] glass-inner animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center px-4 border-b border-border/60 bg-muted/20">

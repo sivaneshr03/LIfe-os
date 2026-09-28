@@ -149,7 +149,7 @@ export function Modal({
       aria-modal="true"
       aria-labelledby={titleId}
       aria-describedby={description ? descId : undefined}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 overflow-y-auto overscroll-contain bg-black/60 dark:bg-black/75 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 pt-[env(safe-area-inset-top,0px)] overflow-y-auto overscroll-contain bg-black/60 dark:bg-black/75 backdrop-blur-md animate-fade-in"
       onClick={(e) => {
         // Close only when clicking outside dialog card
         if (e.target === e.currentTarget) {
@@ -165,7 +165,7 @@ export function Modal({
           clsx(
             // Dimensions & Layout
             'relative w-full text-card-foreground outline-none',
-            'max-h-[92dvh] sm:max-h-[88vh] flex flex-col',
+            'max-h-[92dvh] sm:max-h-[88dvh] flex flex-col',
             'pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-0',
             // Spatial Hardware Double-Bezel & Antigravity Aesthetics
             'bg-card/95 backdrop-blur-xl border-t sm:border border-border/80 dark:border-white/10 rounded-t-3xl sm:rounded-3xl',

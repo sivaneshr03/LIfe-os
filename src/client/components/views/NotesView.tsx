@@ -3,6 +3,7 @@ import { clsx } from 'clsx';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { LoadingState, EmptyState } from '../ui/States';
 import { useToast } from '../ui/Toast';
 import { CategoryDropdown } from '../ui/CategoryDropdown';
@@ -15,6 +16,7 @@ import {
   IconChevronRight,
   IconCalendar,
   IconSparkles,
+  IconTrash,
 } from '../ui/Icons';
 import type {
   NoteData,
@@ -53,6 +55,8 @@ export function NotesView() {
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [noteToDelete, setNoteToDelete] = useState<NoteData | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Note form state
   const [noteTitle, setNoteTitle] = useState('');
@@ -265,6 +269,48 @@ export function NotesView() {
     toast('Prompt copied to clipboard', 'info');
   };
 
+  const confirmDeleteNote = async () => {
+    if (!noteToDelete) return;
+    const note = noteToDelete;
+    try {
+      setIsDeleting(true);
+      const res = await fetch(`/api/notes/${note.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete note');
+      setNotes((prev) => (Array.isArray(prev) ? prev : []).filter((n) => n.id !== note.id));
+      setNoteToDelete(null);
+
+      toast.success(`Note "${note.title}" deleted`, {
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            try {
+              const restoreRes = await fetch('/api/notes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  title: note.title,
+                  content: note.content,
+                  categoryId: note.categoryId || undefined,
+                  isPinned: note.isPinned,
+                }),
+              });
+              if (!restoreRes.ok) throw new Error('Failed to restore note');
+              fetchNotes();
+              toast.info(`Restored note "${note.title}"`);
+            } catch {
+              toast.error('Failed to undo note removal');
+            }
+          },
+        },
+        duration: 5000,
+      });
+    } catch {
+      toast.error('Error deleting note');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-up">
       {/* Top Header */}
@@ -385,12 +431,23 @@ export function NotesView() {
                           <h2 className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors">
                             {note.title}
                           </h2>
-                          {note.isPinned && (
-                            <span className="text-[10px] px-2 py-0.5 bg-amber-500/10 text-amber-500 rounded-full font-semibold shrink-0 flex items-center gap-1 border border-amber-500/20">
-                              <IconPin size={10} />
-                              <span>Pinned</span>
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {note.isPinned && (
+                              <span className="text-[10px] px-2 py-0.5 bg-amber-500/10 text-amber-500 rounded-full font-semibold shrink-0 flex items-center gap-1 border border-amber-500/20">
+                                <IconPin size={10} />
+                                <span>Pinned</span>
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setNoteToDelete(note)}
+                              title="Delete note"
+                              aria-label={`Delete note ${note.title}`}
+                              className="p-1 text-foreground/30 hover:text-rose-500 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            >
+                              <IconTrash size={14} />
+                            </button>
+                          </div>
                         </div>
                         <p className="text-xs text-foreground/70 line-clamp-4 whitespace-pre-wrap leading-relaxed">
                           {note.content}
@@ -507,10 +564,11 @@ export function NotesView() {
                   </span>
                   <Button
                     onClick={handleSaveDailyNote}
+                    isLoading={submitting}
                     disabled={submitting}
                     size="sm"
                   >
-                    {submitting ? 'Saving...' : 'Save Daily Note'}
+                    Save Daily Note
                   </Button>
                 </div>
               </div>
@@ -651,8 +709,14 @@ export function NotesView() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              {submitting ? 'Saving...' : 'Save Note'}
+            <Button
+              type="submit"
+              isLoading={submitting}
+              disabled={submitting}
+              size="sm"
+              className="flex-1 sm:flex-initial"
+            >
+              Save Note
             </Button>
           </div>
         </form>
@@ -707,12 +771,33 @@ export function NotesView() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              {submitting ? 'Saving...' : 'Save Prompt'}
+            <Button
+              type="submit"
+              isLoading={submitting}
+              disabled={submitting}
+              size="sm"
+              className="flex-1 sm:flex-initial"
+            >
+              Save Prompt
             </Button>
           </div>
         </form>
       </Modal>
+
+      {/* Reusable Confirmation Modal for Destructive Delete */}
+      <ConfirmationModal
+        isOpen={Boolean(noteToDelete)}
+        onClose={() => setNoteToDelete(null)}
+        onConfirm={confirmDeleteNote}
+        isLoading={isDeleting}
+        title="Delete Knowledge Note"
+        description={
+          noteToDelete
+            ? `Are you sure you want to permanently delete "${noteToDelete.title}"? You will have 5 seconds to undo.`
+            : 'Are you sure you want to delete this note?'
+        }
+        confirmLabel="Delete Note"
+      />
     </div>
   );
 }

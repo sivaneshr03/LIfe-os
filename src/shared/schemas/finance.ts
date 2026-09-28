@@ -19,7 +19,12 @@ export const financeAccountCreateSchema = z.object({
     .length(3, 'Currency must be 3-letter ISO code')
     .toUpperCase()
     .default('INR'),
-  initialBalanceCents: z.number().int('Balance must be integer minor units (cents)').default(0),
+  initialBalanceCents: z
+    .number()
+    .int('Balance must be integer minor units (cents)')
+    .min(0, 'Initial balance cannot be negative')
+    .refine((n) => !isNaN(n) && isFinite(n), 'Invalid balance value')
+    .default(0),
   description: z.string().max(500).optional().nullable(),
   color: z.string().max(30).optional().nullable(),
   icon: z.string().max(50).optional().nullable(),
@@ -58,7 +63,8 @@ export const financeTransactionCreateSchema = z.object({
   amountCents: z
     .number()
     .int('Amount must be integer minor units (cents)')
-    .positive('Transaction amount must be positive'),
+    .positive('Transaction amount must be positive')
+    .refine((n) => !isNaN(n) && isFinite(n), 'Invalid amount value'),
   transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
   payee: z.string().max(200).optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
@@ -72,7 +78,8 @@ export const financeTransferCreateSchema = z.object({
   amountCents: z
     .number()
     .int('Transfer amount must be integer minor units (cents)')
-    .positive('Transfer amount must be positive'),
+    .positive('Transfer amount must be positive')
+    .refine((n) => !isNaN(n) && isFinite(n), 'Invalid transfer amount'),
   transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
   payee: z.string().max(200).optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),

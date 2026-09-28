@@ -3,10 +3,11 @@ import { clsx } from 'clsx';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { Card3D } from '../ui/Card3D';
 import { LoadingState } from '../ui/States';
 import { useToast } from '../ui/Toast';
-import { IconPlus, IconTrendingUp, IconFileText, IconRefreshCw } from '../ui/Icons';
+import { IconPlus, IconTrendingUp, IconFileText, IconRefreshCw, IconTrash } from '../ui/Icons';
 import { formatMoney, parseMoney } from '../../../shared/utils/money';
 import type {
   InvestmentPortfolioSummary,
@@ -33,6 +34,15 @@ export function InvestmentsView() {
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Asset deletion state
+  const [assetToDelete, setAssetToDelete] = useState<InvestmentAssetData | null>(null);
+  const [isDeletingAsset, setIsDeletingAsset] = useState(false);
+
+  // Form validation errors
+  const [assetErrors, setAssetErrors] = useState<Record<string, string>>({});
+  const [quoteErrors, setQuoteErrors] = useState<Record<string, string>>({});
+  const [tradeErrors, setTradeErrors] = useState<Record<string, string>>({});
 
   // New Asset form
   const [sym, setSym] = useState('');
@@ -99,9 +109,53 @@ export function InvestmentsView() {
     fetchInvestments();
   }, [fetchInvestments]);
 
+  const confirmDeleteAsset = async () => {
+    if (!assetToDelete) return;
+    const asset = assetToDelete;
+    try {
+      setIsDeletingAsset(true);
+      const res = await fetch(`/api/investments/assets/${asset.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const { data: errJson } = await safeParseJson<{ error?: { message?: string } | string }>(res);
+        const msg = typeof errJson?.error === 'string' ? errJson.error : errJson?.error?.message;
+        throw new Error(msg || 'Failed to delete asset');
+      }
+      addToast(`Asset "${asset.symbol}" deleted from portfolio`, 'success');
+      setAssetToDelete(null);
+      fetchInvestments();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Error deleting asset', 'error');
+    } finally {
+      setIsDeletingAsset(false);
+    }
+  };
+
   const handleCreateAsset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sym.trim() || !name.trim()) return;
+    const errors: Record<string, string> = {};
+    if (!sym.trim()) errors.symbol = 'Symbol is required';
+    if (!name.trim()) errors.name = 'Asset name is required';
+    const sharesNum = Number(shares.trim());
+    if (!shares.trim() || isNaN(sharesNum) || sharesNum < 0) {
+      errors.shares = 'Shares must be a valid non-negative number';
+    }
+    if (avgCost.trim()) {
+      const costNum = Number(avgCost.trim());
+      if (isNaN(costNum) || costNum < 0) {
+        errors.avgCost = 'Average cost must be a non-negative number';
+      }
+    }
+    if (price.trim()) {
+      const priceNum = Number(price.trim());
+      if (isNaN(priceNum) || priceNum < 0) {
+        errors.price = 'Price must be a non-negative number';
+      }
+    }
+    if (Object.keys(errors).length > 0) {
+      setAssetErrors(errors);
+      return;
+    }
+    setAssetErrors({});
 
     try {
       setSubmitting(true);
@@ -143,7 +197,17 @@ export function InvestmentsView() {
 
   const handleRecordQuote = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAssetId || !newQuotePrice) return;
+    const errors: Record<string, string> = {};
+    if (!selectedAssetId) errors.assetId = 'Please select an asset';
+    const quoteNum = Number(newQuotePrice.trim());
+    if (!newQuotePrice.trim() || isNaN(quoteNum) || quoteNum <= 0) {
+      errors.price = 'Price quote must be greater than 0';
+    }
+    if (Object.keys(errors).length > 0) {
+      setQuoteErrors(errors);
+      return;
+    }
+    setQuoteErrors({});
 
     try {
       setSubmitting(true);
@@ -171,7 +235,27 @@ export function InvestmentsView() {
 
   const handleRecordTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!txAssetId) return;
+    const errors: Record<string, string> = {};
+    if (!txAssetId) errors.assetId = 'Please select an asset';
+    const sharesNum = Number(txShares.trim());
+    if (!txShares.trim() || isNaN(sharesNum) || sharesNum <= 0) {
+      errors.shares = 'Shares quantity must be greater than 0';
+    }
+    const priceNum = Number(txPrice.trim());
+    if (!txPrice.trim() || isNaN(priceNum) || priceNum <= 0) {
+      errors.price = 'Price per unit must be greater than 0';
+    }
+    if (txFee.trim()) {
+      const feeNum = Number(txFee.trim());
+      if (isNaN(feeNum) || feeNum < 0) {
+        errors.fee = 'Fee cannot be negative';
+      }
+    }
+    if (Object.keys(errors).length > 0) {
+      setTradeErrors(errors);
+      return;
+    }
+    setTradeErrors({});
 
     try {
       setSubmitting(true);
@@ -465,12 +549,13 @@ export function InvestmentsView() {
                   <th className="py-2.5 px-4 font-semibold">Latest Price</th>
                   <th className="py-2.5 px-4 font-semibold">Market Value</th>
                   <th className="py-2.5 px-4 font-semibold text-right">Unrealized P&L</th>
+                  <th className="py-2.5 px-4 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
                 {assets.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-foreground/50">
+                    <td colSpan={8} className="py-8 text-center text-foreground/50">
                       No holdings in your portfolio yet. Click &quot;+ Add Asset&quot; or &quot;Import CSV&quot; to begin.
                     </td>
                   </tr>
@@ -521,6 +606,17 @@ export function InvestmentsView() {
                             {isGain ? '+' : ''}
                             {asset.unrealizedGainLossPercentage}%
                           </div>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setAssetToDelete(asset)}
+                            title={`Delete ${asset.symbol}`}
+                            aria-label={`Delete asset ${asset.symbol}`}
+                            className="p-1.5 text-foreground/30 hover:text-rose-500 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
+                          >
+                            <IconTrash size={14} />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -706,6 +802,7 @@ export function InvestmentsView() {
               onChange={(e) => setTxShares(e.target.value)}
               placeholder="1.0"
               className="font-mono"
+              error={tradeErrors.shares}
             />
           </div>
 
@@ -719,6 +816,7 @@ export function InvestmentsView() {
               onChange={(e) => setTxPrice(e.target.value)}
               placeholder="150.00"
               className="font-mono"
+              error={tradeErrors.price}
             />
             <Input
               label="Fee (₹)"
@@ -728,6 +826,7 @@ export function InvestmentsView() {
               onChange={(e) => setTxFee(e.target.value)}
               placeholder="0.00"
               className="font-mono"
+              error={tradeErrors.fee}
             />
           </div>
 
@@ -749,8 +848,8 @@ export function InvestmentsView() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              {submitting ? 'Recording...' : 'Record Transaction'}
+            <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
+              Record Transaction
             </Button>
           </div>
         </form>
@@ -772,6 +871,7 @@ export function InvestmentsView() {
               onChange={(e) => setSym(e.target.value.toUpperCase())}
               placeholder="e.g. AAPL, BTC, VTI"
               className="font-mono uppercase"
+              error={assetErrors.symbol}
               autoFocus
             />
             <div>
@@ -799,6 +899,7 @@ export function InvestmentsView() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Apple Inc."
+            error={assetErrors.name}
           />
 
           <Input
@@ -808,6 +909,7 @@ export function InvestmentsView() {
             onChange={(e) => setShares(e.target.value)}
             placeholder="1.5"
             className="font-mono"
+            error={assetErrors.shares}
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -819,6 +921,7 @@ export function InvestmentsView() {
               onChange={(e) => setAvgCost(e.target.value)}
               placeholder="150.00"
               className="font-mono"
+              error={assetErrors.avgCost}
             />
             <Input
               label="Latest Price (₹)"
@@ -828,6 +931,7 @@ export function InvestmentsView() {
               onChange={(e) => setPrice(e.target.value)}
               placeholder="180.00"
               className="font-mono"
+              error={assetErrors.price}
             />
           </div>
 
@@ -842,8 +946,8 @@ export function InvestmentsView() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              {submitting ? 'Adding...' : 'Add Holding'}
+            <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
+              Add Holding
             </Button>
           </div>
         </form>
@@ -883,6 +987,7 @@ export function InvestmentsView() {
             onChange={(e) => setNewQuotePrice(e.target.value)}
             placeholder="0.00"
             className="font-mono"
+            error={quoteErrors.price}
             autoFocus
           />
 
@@ -897,8 +1002,8 @@ export function InvestmentsView() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              {submitting ? 'Recording...' : 'Record Quote'}
+            <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
+              Record Quote
             </Button>
           </div>
         </form>
@@ -950,11 +1055,12 @@ export function InvestmentsView() {
               type="button"
               variant="secondary"
               onClick={() => handleProcessCsv(true)}
+              isLoading={submitting}
               disabled={submitting}
               size="sm"
               className="w-full sm:w-auto"
             >
-              {submitting ? 'Checking...' : 'Dry-Run Validate'}
+              Dry-Run Validate
             </Button>
             <div className="flex items-center gap-2">
               <Button
@@ -970,16 +1076,29 @@ export function InvestmentsView() {
               <Button
                 type="button"
                 onClick={() => handleProcessCsv(false)}
+                isLoading={submitting}
                 disabled={submitting}
                 size="sm"
                 className="flex-1 sm:flex-initial"
               >
-                {submitting ? 'Importing...' : 'Commit Import'}
+                Commit Import
               </Button>
             </div>
           </div>
         </div>
       </Modal>
+
+      {/* Confirmation Modal for Asset Deletion */}
+      <ConfirmationModal
+        isOpen={Boolean(assetToDelete)}
+        onClose={() => setAssetToDelete(null)}
+        onConfirm={confirmDeleteAsset}
+        isLoading={isDeletingAsset}
+        title="Delete Portfolio Holding"
+        description={`Are you sure you want to delete ${assetToDelete?.symbol} (${assetToDelete?.name})? All recorded purchase history and allocation weighting will be removed.`}
+        confirmLabel="Delete Asset"
+        variant="danger"
+      />
     </div>
   );
 }

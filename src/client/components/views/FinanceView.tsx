@@ -3,10 +3,11 @@ import { clsx } from 'clsx';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { Card3D } from '../ui/Card3D';
 import { LoadingState } from '../ui/States';
 import { useToast } from '../ui/Toast';
-import { IconPlus, IconRefreshCw, IconChevronRight } from '../ui/Icons';
+import { IconPlus, IconRefreshCw, IconChevronRight, IconTrash, IconFileText } from '../ui/Icons';
 import { CategoryPickerModal } from '../ui/CategoryPickerModal';
 import { CategoryDropdown } from '../ui/CategoryDropdown';
 import { MobileTransactionSheet } from '../ui/MobileTransactionSheet';
@@ -51,6 +52,16 @@ export function FinanceView() {
   const [isPayoffModalOpen, setIsPayoffModalOpen] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<FinanceDebtData | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [accountToDelete, setAccountToDelete] = useState<FinanceAccountData | null>(null);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  // Form validation errors state
+  const [accErrors, setAccErrors] = useState<Record<string, string>>({});
+  const [txnErrors, setTxnErrors] = useState<Record<string, string>>({});
+  const [transferErrors, setTransferErrors] = useState<Record<string, string>>({});
+  const [budgetErrors, setBudgetErrors] = useState<Record<string, string>>({});
+  const [debtErrors, setDebtErrors] = useState<Record<string, string>>({});
+  const [payoffErrors, setPayoffErrors] = useState<Record<string, string>>({});
 
   // New Account form state
   const [accName, setAccName] = useState('');
@@ -179,9 +190,46 @@ export function FinanceView() {
     return map;
   }, [categories]);
 
+  const confirmDeleteAccount = async () => {
+    if (!accountToDelete) return;
+    const acc = accountToDelete;
+    try {
+      setIsDeletingAccount(true);
+      const res = await fetch(`/api/finance/accounts/${acc.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const { data: errJson } = await safeParseJson<{ error?: { message?: string } | string }>(res);
+        const msg = typeof errJson?.error === 'string' ? errJson.error : errJson?.error?.message;
+        throw new Error(msg || 'Failed to delete account');
+      }
+      addToast(`Account "${acc.name}" deleted`, 'success');
+      setAccountToDelete(null);
+      fetchFinanceData();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Error deleting account', 'error');
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!accName.trim()) return;
+    const errors: Record<string, string> = {};
+    if (!accName.trim()) {
+      errors.name = 'Account name is required';
+    }
+    if (accBalance.trim()) {
+      const num = Number(accBalance.trim());
+      if (isNaN(num)) {
+        errors.balance = 'Balance must be a valid number';
+      } else if (num < 0) {
+        errors.balance = 'Initial balance cannot be negative';
+      }
+    }
+    if (Object.keys(errors).length > 0) {
+      setAccErrors(errors);
+      return;
+    }
+    setAccErrors({});
 
     try {
       setSubmitting(true);
@@ -212,7 +260,19 @@ export function FinanceView() {
 
   const handleCreateTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!txnAccountId || !txnAmount.trim()) return;
+    const errors: Record<string, string> = {};
+    if (!txnAccountId) {
+      errors.account = 'Please select an account';
+    }
+    const num = Number(txnAmount.trim());
+    if (!txnAmount.trim() || isNaN(num) || num <= 0) {
+      errors.amount = 'Amount must be a positive number greater than 0';
+    }
+    if (Object.keys(errors).length > 0) {
+      setTxnErrors(errors);
+      return;
+    }
+    setTxnErrors({});
 
     try {
       setSubmitting(true);
@@ -246,11 +306,25 @@ export function FinanceView() {
 
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!transferFromId || !transferToId || !transferAmount.trim()) return;
-    if (transferFromId === transferToId) {
-      addToast('Source and destination accounts must be different', 'error');
+    const errors: Record<string, string> = {};
+    const num = Number(transferAmount.trim());
+    if (!transferAmount.trim() || isNaN(num) || num <= 0) {
+      errors.amount = 'Transfer amount must be greater than 0';
+    }
+    if (!transferFromId) {
+      errors.fromAccount = 'Source account is required';
+    }
+    if (!transferToId) {
+      errors.toAccount = 'Destination account is required';
+    }
+    if (transferFromId && transferToId && transferFromId === transferToId) {
+      errors.toAccount = 'Destination must differ from source account';
+    }
+    if (Object.keys(errors).length > 0) {
+      setTransferErrors(errors);
       return;
     }
+    setTransferErrors({});
 
     try {
       setSubmitting(true);
@@ -283,7 +357,19 @@ export function FinanceView() {
 
   const handleCreateBudget = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!budgetCatId || !budgetAmount.trim()) return;
+    const errors: Record<string, string> = {};
+    if (!budgetCatId) {
+      errors.category = 'Please select a category';
+    }
+    const num = Number(budgetAmount.trim());
+    if (!budgetAmount.trim() || isNaN(num) || num <= 0) {
+      errors.amount = 'Budget limit must be a positive number';
+    }
+    if (Object.keys(errors).length > 0) {
+      setBudgetErrors(errors);
+      return;
+    }
+    setBudgetErrors({});
 
     try {
       setSubmitting(true);
@@ -314,7 +400,30 @@ export function FinanceView() {
 
   const handleCreateDebt = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!debtName.trim() || !debtCreditor.trim() || !debtAmount.trim()) return;
+    const errors: Record<string, string> = {};
+    if (!debtName.trim()) errors.name = 'Debt name is required';
+    if (!debtCreditor.trim()) errors.creditor = 'Creditor name is required';
+    const owed = Number(debtAmount.trim());
+    if (!debtAmount.trim() || isNaN(owed) || owed <= 0) {
+      errors.amount = 'Total owed must be greater than 0';
+    }
+    if (debtApr.trim()) {
+      const apr = Number(debtApr.trim());
+      if (isNaN(apr) || apr < 0) {
+        errors.apr = 'APR cannot be negative';
+      }
+    }
+    if (debtMinPayment.trim()) {
+      const minPay = Number(debtMinPayment.trim());
+      if (isNaN(minPay) || minPay < 0) {
+        errors.minPayment = 'Minimum payment cannot be negative';
+      }
+    }
+    if (Object.keys(errors).length > 0) {
+      setDebtErrors(errors);
+      return;
+    }
+    setDebtErrors({});
 
     try {
       setSubmitting(true);
@@ -350,7 +459,17 @@ export function FinanceView() {
 
   const handleDebtPayoff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDebt || !payoffAmount.trim()) return;
+    if (!selectedDebt) return;
+    const errors: Record<string, string> = {};
+    const amt = Number(payoffAmount.trim());
+    if (!payoffAmount.trim() || isNaN(amt) || amt <= 0) {
+      errors.amount = 'Payment amount must be greater than 0';
+    }
+    if (Object.keys(errors).length > 0) {
+      setPayoffErrors(errors);
+      return;
+    }
+    setPayoffErrors({});
 
     try {
       setSubmitting(true);
@@ -420,6 +539,15 @@ export function FinanceView() {
           </p>
         </div>
         <div className="grid grid-cols-2 sm:flex sm:items-center sm:flex-wrap gap-2 w-full sm:w-auto">
+          <a
+            href="/api/finance/export?format=csv&entity=transactions"
+            download="finance_transactions.csv"
+            onClick={() => addToast('Finance ledger exported successfully', 'success')}
+            className="min-h-[40px] sm:min-h-[32px] px-3 text-xs font-semibold bg-muted/80 text-foreground hover:bg-muted rounded-xl border border-border/80 inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation cursor-pointer"
+          >
+            <IconFileText size={13} />
+            <span>Export CSV</span>
+          </a>
           <Button onClick={() => setIsAccountModalOpen(true)} variant="secondary" size="sm" className="w-full sm:w-auto justify-center">
             <IconPlus size={13} />
             <span>Account</span>
@@ -537,16 +665,27 @@ export function FinanceView() {
                 className="p-5 bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner shadow-xs space-y-3 hover:border-primary/40 transition-colors"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <div
-                      className="w-3 h-3 rounded-full"
+                      className="w-3 h-3 rounded-full shrink-0"
                       style={{ backgroundColor: acc.color || '#3b82f6' }}
                     />
                     <span className="text-sm font-bold text-foreground truncate">{acc.name}</span>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 bg-muted rounded-lg font-semibold uppercase tracking-wider text-muted-foreground font-mono">
-                    {acc.type}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] px-2 py-0.5 bg-muted rounded-lg font-semibold uppercase tracking-wider text-muted-foreground font-mono">
+                      {acc.type}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAccountToDelete(acc)}
+                      title="Delete account"
+                      aria-label={`Delete account ${acc.name}`}
+                      className="p-1 text-foreground/30 hover:text-rose-500 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
+                    >
+                      <IconTrash size={14} />
+                    </button>
+                  </div>
                 </div>
                 <div className="text-xl font-extrabold text-foreground tracking-tight font-mono">
                   {formatMoney(acc.balanceCents, acc.currency)}
@@ -734,7 +873,11 @@ export function FinanceView() {
             label="Account Name"
             required
             value={accName}
-            onChange={(e) => setAccName(e.target.value)}
+            onChange={(e) => {
+              setAccName(e.target.value);
+              if (accErrors.name) setAccErrors((prev) => ({ ...prev, name: '' }));
+            }}
+            error={accErrors.name}
             placeholder="e.g. Primary Checking"
             autoFocus
           />
@@ -780,7 +923,11 @@ export function FinanceView() {
           <Input
             label="Initial Balance"
             value={accBalance}
-            onChange={(e) => setAccBalance(e.target.value)}
+            onChange={(e) => {
+              setAccBalance(e.target.value);
+              if (accErrors.balance) setAccErrors((prev) => ({ ...prev, balance: '' }));
+            }}
+            error={accErrors.balance}
             placeholder="0.00"
             className="font-mono"
           />
@@ -796,8 +943,8 @@ export function FinanceView() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              {submitting ? 'Creating...' : 'Create Account'}
+            <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
+              Create Account
             </Button>
           </div>
         </form>
@@ -848,7 +995,11 @@ export function FinanceView() {
                 label="Amount (₹)"
                 required
                 value={txnAmount}
-                onChange={(e) => setTxnAmount(e.target.value)}
+                onChange={(e) => {
+                  setTxnAmount(e.target.value);
+                  if (txnErrors.amount) setTxnErrors((prev) => ({ ...prev, amount: '' }));
+                }}
+                error={txnErrors.amount}
                 placeholder="0.00"
                 className="font-mono"
               />
@@ -908,8 +1059,8 @@ export function FinanceView() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              {submitting ? 'Posting...' : 'Post Transaction'}
+            <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
+              Post Transaction
             </Button>
           </div>
         </form>
@@ -946,8 +1097,14 @@ export function FinanceView() {
             </label>
             <select
               value={transferToId}
-              onChange={(e) => setTransferToId(e.target.value)}
-              className="w-full px-3.5 py-2.5 sm:py-2 text-base sm:text-xs min-h-[44px] sm:min-h-[38px] bg-card border border-border/80 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer font-mono touch-manipulation"
+              onChange={(e) => {
+                setTransferToId(e.target.value);
+                if (transferErrors.toAccount) setTransferErrors((prev) => ({ ...prev, toAccount: '' }));
+              }}
+              className={clsx(
+                "w-full px-3.5 py-2.5 sm:py-2 text-base sm:text-xs min-h-[44px] sm:min-h-[38px] bg-card border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono cursor-pointer touch-manipulation",
+                transferErrors.toAccount ? "border-red-500" : "border-border/80"
+              )}
             >
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -955,6 +1112,11 @@ export function FinanceView() {
                 </option>
               ))}
             </select>
+            {transferErrors.toAccount && (
+              <p className="text-[11px] text-red-500 font-medium leading-relaxed mt-1">
+                • {transferErrors.toAccount}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -963,7 +1125,11 @@ export function FinanceView() {
                 label="Transfer Amount (₹)"
                 required
                 value={transferAmount}
-                onChange={(e) => setTransferAmount(e.target.value)}
+                onChange={(e) => {
+                  setTransferAmount(e.target.value);
+                  if (transferErrors.amount) setTransferErrors((prev) => ({ ...prev, amount: '' }));
+                }}
+                error={transferErrors.amount}
                 placeholder="100.00"
                 className="font-mono"
               />
@@ -1000,8 +1166,8 @@ export function FinanceView() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              {submitting ? 'Transferring...' : 'Execute Transfer'}
+            <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
+              Execute Transfer
             </Button>
           </div>
         </form>
@@ -1048,6 +1214,7 @@ export function FinanceView() {
                 onChange={(e) => setBudgetAmount(e.target.value)}
                 placeholder="400.00"
                 className="font-mono"
+                error={budgetErrors.amount}
               />
             </div>
 
@@ -1077,8 +1244,8 @@ export function FinanceView() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              {submitting ? 'Saving...' : 'Save Budget'}
+            <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
+              Save Budget
             </Button>
           </div>
         </form>
@@ -1098,6 +1265,7 @@ export function FinanceView() {
             value={debtName}
             onChange={(e) => setDebtName(e.target.value)}
             placeholder="e.g. Visa Credit Card, Auto Loan"
+            error={debtErrors.name}
             autoFocus
           />
 
@@ -1107,6 +1275,7 @@ export function FinanceView() {
             value={debtCreditor}
             onChange={(e) => setDebtCreditor(e.target.value)}
             placeholder="e.g. Chase, Dept of Education"
+            error={debtErrors.creditor}
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1118,6 +1287,7 @@ export function FinanceView() {
                 onChange={(e) => setDebtAmount(e.target.value)}
                 placeholder="1000.00"
                 className="font-mono"
+                error={debtErrors.amount}
               />
             </div>
 
@@ -1128,6 +1298,7 @@ export function FinanceView() {
                 onChange={(e) => setDebtApr(e.target.value)}
                 placeholder="18.5"
                 className="font-mono"
+                error={debtErrors.apr}
               />
             </div>
 
@@ -1138,6 +1309,7 @@ export function FinanceView() {
                 onChange={(e) => setDebtMinPayment(e.target.value)}
                 placeholder="35.00"
                 className="font-mono"
+                error={debtErrors.minPayment}
               />
             </div>
           </div>
@@ -1153,8 +1325,8 @@ export function FinanceView() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              {submitting ? 'Saving...' : 'Save Debt'}
+            <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
+              Save Debt
             </Button>
           </div>
         </form>
@@ -1175,6 +1347,7 @@ export function FinanceView() {
             onChange={(e) => setPayoffAmount(e.target.value)}
             placeholder="350.00"
             className="font-mono"
+            error={payoffErrors.amount}
             autoFocus
           />
 
@@ -1219,8 +1392,8 @@ export function FinanceView() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              {submitting ? 'Recording...' : 'Record Payment'}
+            <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
+              Record Payment
             </Button>
           </div>
         </form>
@@ -1257,6 +1430,18 @@ export function FinanceView() {
         onCategoriesChange={fetchFinanceData}
         kpi={mobileSheetKpi}
         domain="finance"
+      />
+
+      {/* Confirmation Modal for Account Deletion */}
+      <ConfirmationModal
+        isOpen={Boolean(accountToDelete)}
+        onClose={() => setAccountToDelete(null)}
+        onConfirm={confirmDeleteAccount}
+        isLoading={isDeletingAccount}
+        title="Delete Bank Account"
+        description={`Are you sure you want to delete the account "${accountToDelete?.name}"? All associated transactions and historical ledger entries will be permanently removed.`}
+        confirmLabel="Delete Account"
+        variant="danger"
       />
     </div>
   );

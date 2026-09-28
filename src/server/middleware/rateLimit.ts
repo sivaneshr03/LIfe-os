@@ -33,12 +33,14 @@ export function createRateLimiter(options: { max: number; windowMs: number }): M
       });
     }
 
-    // Periodically prune stale keys
-    if (rateLimitMap.size > 1000) {
-      for (const [k, v] of rateLimitMap.entries()) {
-        if (v.resetAt <= now) rateLimitMap.delete(k);
-      }
-    }
+    const currentRecord = rateLimitMap.get(key);
+    const count = currentRecord ? currentRecord.count : 1;
+    const resetAt = currentRecord ? currentRecord.resetAt : now + options.windowMs;
+    const remaining = Math.max(0, options.max - count);
+
+    c.header('X-RateLimit-Limit', String(options.max));
+    c.header('X-RateLimit-Remaining', String(remaining));
+    c.header('X-RateLimit-Reset', String(Math.ceil(resetAt / 1000)));
 
     await next();
   };
