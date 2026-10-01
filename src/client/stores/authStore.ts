@@ -58,6 +58,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       // In local development environment, fallback to dev user so user is never locked out of mock testing
       if (
+        import.meta.env.DEV &&
         typeof window !== 'undefined' &&
         (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
       ) {
@@ -86,6 +87,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch {
       // In local development environment, fallback to dev user so user is never locked out of mock testing
       if (
+        import.meta.env.DEV &&
         typeof window !== 'undefined' &&
         (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
       ) {

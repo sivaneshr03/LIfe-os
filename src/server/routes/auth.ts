@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { setCookie, deleteCookie } from 'hono/cookie';
+import { setCookie, deleteCookie, getCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
 import { eq, and, sql } from 'drizzle-orm';
 import { createDb } from '../db/client';
@@ -15,6 +15,15 @@ import type { ApiSuccessResponse, AuthSessionData, PublicUser, UserPreferencesDa
 import type { AppBindings } from '../index';
 
 const authRouter = new Hono<{ Bindings: AppBindings }>();
+
+function isSecureConnection(c: { req: { url: string; header: (name: string) => string | undefined }; env?: { ENVIRONMENT?: string } }): boolean {
+  return (
+    c.env?.ENVIRONMENT === 'production' ||
+    c.env?.ENVIRONMENT === 'preview' ||
+    c.req.url.startsWith('https:') ||
+    c.req.header('x-forwarded-proto') === 'https'
+  );
+}
 
 function formatPublicUser(u: User): PublicUser {
   return {
@@ -53,7 +62,7 @@ authRouter.get('/status', async (c) => {
 });
 
 // First-time Admin Bootstrap (Permitted ONLY if 0 users exist)
-authRouter.post('/bootstrap', zValidator('json', bootstrapSchema), async (c) => {
+authRouter.post('/bootstrap', createRateLimiter({ max: 10, windowMs: 15 * 60 * 1000 }), zValidator('json', bootstrapSchema), async (c) => {
   if (!c.env?.DB) throw new HTTPException(503, { message: 'Database unavailable' });
   const db = createDb(c.env.DB);
   const body = c.req.valid('json');
@@ -118,10 +127,9 @@ authRouter.post('/bootstrap', zValidator('json', bootstrapSchema), async (c) => 
     userAgent: c.req.header('user-agent')?.slice(0, 255),
   });
 
-  const isProd = c.env.ENVIRONMENT === 'production' || c.env.ENVIRONMENT === 'preview';
   setCookie(c, SESSION_COOKIE_NAME, sessionId, {
     httpOnly: true,
-    secure: isProd,
+    secure: isSecureConnection(c),
     sameSite: 'Lax',
     path: '/',
     maxAge: 30 * 24 * 60 * 60,
@@ -177,10 +185,9 @@ authRouter.post('/login', createRateLimiter({ max: 5, windowMs: 15 * 60 * 1000 }
     userAgent: c.req.header('user-agent')?.slice(0, 255),
   });
 
-  const isProd = c.env.ENVIRONMENT === 'production' || c.env.ENVIRONMENT === 'preview';
   setCookie(c, SESSION_COOKIE_NAME, sessionId, {
     httpOnly: true,
-    secure: isProd,
+    secure: isSecureConnection(c),
     sameSite: 'Lax',
     path: '/',
     maxAge: 30 * 24 * 60 * 60,
@@ -310,10 +317,9 @@ authRouter.post('/register', createRateLimiter({ max: 20, windowMs: 15 * 60 * 10
     userAgent: c.req.header('user-agent')?.slice(0, 255),
   });
 
-  const isProd = c.env.ENVIRONMENT === 'production' || c.env.ENVIRONMENT === 'preview';
   setCookie(c, SESSION_COOKIE_NAME, sessionId, {
     httpOnly: true,
-    secure: isProd,
+    secure: isSecureConnection(c),
     sameSite: 'Lax',
     path: '/',
     maxAge: 30 * 24 * 60 * 60,
@@ -335,7 +341,7 @@ authRouter.post('/register', createRateLimiter({ max: 20, windowMs: 15 * 60 * 10
 
 // Logout endpoint
 authRouter.post('/logout', async (c) => {
-  const sessionId = c.req.header('cookie')?.match(new RegExp(`${SESSION_COOKIE_NAME}=([^;]+)`))?.[1];
+  const sessionId = getCookie(c, SESSION_COOKIE_NAME);
 
   if (sessionId && c.env?.DB) {
     const db = createDb(c.env.DB);
@@ -343,7 +349,11 @@ authRouter.post('/logout', async (c) => {
     await logAuditEvent(c, 'auth.logout');
   }
 
-  deleteCookie(c, SESSION_COOKIE_NAME, { path: '/' });
+  deleteCookie(c, SESSION_COOKIE_NAME, {
+    path: '/',
+    secure: isSecureConnection(c),
+    sameSite: 'Lax',
+  });
 
   return c.json<ApiSuccessResponse<{ loggedOut: true }>>({
     success: true,
@@ -437,10 +447,9 @@ authRouter.post(
       userAgent: c.req.header('user-agent')?.slice(0, 255),
     });
 
-    const isProd = c.env.ENVIRONMENT === 'production' || c.env.ENVIRONMENT === 'preview';
     setCookie(c, SESSION_COOKIE_NAME, newSessionId, {
       httpOnly: true,
-      secure: isProd,
+      secure: isSecureConnection(c),
       sameSite: 'Lax',
       path: '/',
       maxAge: 30 * 24 * 60 * 60,

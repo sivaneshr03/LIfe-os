@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { requestIdMiddleware } from './middleware/requestId';
 import { securityHeadersMiddleware } from './middleware/securityHeaders';
 import { errorHandler } from './middleware/errorHandler';
+import { csrfProtectionMiddleware } from './middleware/csrf';
 import { healthRouter } from './routes/health';
 import { authRouter } from './routes/auth';
 import { settingsRouter } from './routes/settings';
@@ -52,6 +53,7 @@ const app = new Hono<{ Bindings: AppBindings }>();
 // Global Middlewares
 app.use('*', requestIdMiddleware);
 app.use('*', securityHeadersMiddleware);
+app.use('/api/*', csrfProtectionMiddleware);
 
 // Centralized Error Handling
 app.onError(errorHandler);

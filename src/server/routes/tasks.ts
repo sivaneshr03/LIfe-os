@@ -21,6 +21,7 @@ import {
   recurrenceExceptionCreateSchema,
 } from '../../shared/schemas/productivity';
 import { getTodayCalendarDate, isValidCalendarDate, shiftCalendarDate } from '../../shared/utils/date';
+import { sanitizeSearchQuery } from '../../shared/utils/pagination';
 import { generateOccurrencesForUser } from '../services/recurrenceService';
 import type {
   ApiSuccessResponse,
@@ -148,7 +149,8 @@ tasksRouter.get('/', zValidator('query', taskQuerySchema), async (c) => {
   }
 
   if (q.q && q.q.trim().length > 0) {
-    const term = `%${q.q.trim()}%`;
+    const escaped = sanitizeSearchQuery(q.q.trim());
+    const term = `%${escaped}%`;
     conditions.push(or(like(tasks.title, term), like(tasks.description, term))!);
   }
 
