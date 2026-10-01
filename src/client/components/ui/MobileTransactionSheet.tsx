@@ -22,7 +22,7 @@ import React, {
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { CategoryData } from '../../shared/platformTypes';
+import type { CategoryData } from '../../../shared/types';
 import {
   IconX,
   IconPlus,

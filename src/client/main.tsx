@@ -1,10 +1,11 @@
+/// <reference types="vite/client" />
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import './styles/index.css';
 
 // Register PWA service worker in production/browser environments
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator && process.env.NODE_ENV !== 'development') {
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.MODE !== 'development') {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')

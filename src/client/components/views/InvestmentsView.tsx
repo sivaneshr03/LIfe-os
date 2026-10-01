@@ -4,10 +4,11 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
-import { Card3D } from '../ui/Card3D';
 import { LoadingState } from '../ui/States';
 import { useToast } from '../ui/Toast';
 import { IconPlus, IconTrendingUp, IconFileText, IconRefreshCw, IconTrash } from '../ui/Icons';
+import { CsvDropzone } from '../ui/CsvDropzone';
+import { KpiCard, KpiGrid } from '../ui/KpiCard';
 import { formatMoney, parseMoney } from '../../../shared/utils/money';
 import type {
   InvestmentPortfolioSummary,
@@ -331,7 +332,7 @@ export function InvestmentsView() {
         setCsvResult(json.data);
       }
 
-      if (!dryRun && json.data.validCount > 0) {
+      if (!dryRun && json?.data && json.data.validCount > 0) {
         addToast(`Successfully imported ${json.data.validCount} holdings`, 'success');
         setIsCsvModalOpen(false);
         fetchInvestments();
@@ -341,6 +342,55 @@ export function InvestmentsView() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleInstantCsvUpload = async ({
+    csvText: incomingCsv,
+  }: {
+    csvText: string;
+    file: File;
+    rowCount: number;
+  }) => {
+    setCsvText(incomingCsv);
+    const lines = incomingCsv.trim().split('\n').filter(Boolean);
+    if (lines.length <= 1) {
+      throw new Error('CSV text must contain headers and at least one data row');
+    }
+
+    const headers = lines[0].split(',').map((h) => h.trim());
+    const rows = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map((c) => c.trim());
+      const rowObj: Record<string, unknown> = {};
+      headers.forEach((h, idx) => {
+        const val = cols[idx];
+        if (h === 'avgCostPerShareCents' || h === 'latestPriceCents') {
+          rowObj[h] = parseInt(val, 10);
+        } else {
+          rowObj[h] = val;
+        }
+      });
+      rows.push(rowObj);
+    }
+
+    const res = await fetch('/api/investments/import/csv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dryRun: false, rows }),
+    });
+
+    const { data: json, error: jsonErr } =
+      await safeParseJson<ApiSuccessResponse<CsvImportResponse>>(res);
+    if (!res.ok || !json?.data) {
+      throw new Error(
+        jsonErr || (json as any)?.error?.message || 'CSV processing error'
+      );
+    }
+
+    setCsvResult(json.data);
+    fetchInvestments();
+    return json.data;
   };
 
   if (loading) {
@@ -356,28 +406,36 @@ export function InvestmentsView() {
   const isPositiveGain = gainLossCents >= 0;
 
   return (
-    <div className="space-y-6 animate-fade-up">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
-            Investments & Portfolio
-          </h1>
-          <p className="text-xs text-foreground/60 mt-0.5">
-            Fractional share scaling (10⁻⁶), zero floating-point drift, buy/sell trades, and CSV archive
-          </p>
+    <div className="space-y-6 max-w-7xl mx-auto pb-12 animate-fade-up">
+      {/* ─── Executive Header & Actions ─── */}
+      <div className="bg-surface-container-lowest rounded-2xl p-5 sm:p-6 border border-border/70 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="font-headline-lg text-2xl sm:text-3xl font-bold tracking-tight text-on-surface">
+              Investments & Portfolio
+            </h1>
+            <span className="font-label-caps text-xs px-2.5 py-0.5 rounded-full bg-secondary-container/40 text-secondary font-mono font-semibold">
+              {assets.length} Holdings
+            </span>
+          </div>
         </div>
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2 w-full sm:w-auto">
+
+        <div className="flex items-center flex-wrap gap-2 shrink-0">
           <a
             href="/api/investments/export/csv"
             download
-            className="min-h-[40px] sm:min-h-[32px] px-3 text-xs font-semibold bg-secondary/80 text-secondary-foreground rounded-xl border border-border/80 hover:bg-secondary inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+            className="h-9 px-3 text-xs font-semibold bg-surface-container-low hover:bg-surface-container text-on-surface rounded-xl border border-border/70 inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
-            <IconFileText size={13} />
-            <span>Export CSV</span>
+            <IconFileText size={14} className="text-on-surface-variant" />
+            <span>Export</span>
           </a>
-          <Button onClick={() => setIsCsvModalOpen(true)} variant="secondary" size="sm" className="w-full sm:w-auto justify-center">
-            <IconFileText size={13} />
+          <Button
+            onClick={() => setIsCsvModalOpen(true)}
+            variant="secondary"
+            size="sm"
+            className="rounded-xl border-border/70"
+          >
+            <IconFileText size={14} />
             <span>Import CSV</span>
           </Button>
           <Button
@@ -391,119 +449,83 @@ export function InvestmentsView() {
             }}
             variant="secondary"
             size="sm"
-            className="w-full sm:w-auto justify-center"
+            className="rounded-xl border-border/70"
           >
-            <IconRefreshCw size={13} />
+            <IconRefreshCw size={14} />
             <span>Record Trade</span>
           </Button>
-          <Button onClick={() => setIsQuoteModalOpen(true)} variant="secondary" size="sm" className="w-full sm:w-auto justify-center">
-            <IconTrendingUp size={13} />
+          <Button
+            onClick={() => setIsQuoteModalOpen(true)}
+            variant="secondary"
+            size="sm"
+            className="rounded-xl border-border/70"
+          >
+            <IconTrendingUp size={14} />
             <span>Quote</span>
           </Button>
-          <Button onClick={() => setIsAssetModalOpen(true)} size="sm" className="col-span-2 sm:col-span-1 w-full sm:w-auto justify-center">
-            <IconPlus size={13} />
+          <Button
+            onClick={() => setIsAssetModalOpen(true)}
+            variant="primary"
+            size="sm"
+            className="rounded-xl shadow-sm hover:shadow-[0_4px_16px_rgba(70,72,212,0.28)]"
+          >
+            <IconPlus size={14} />
             <span>Add Asset</span>
           </Button>
         </div>
       </div>
 
-      {/* Portfolio Metrics Cockpit with 3D Depth */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-        <Card3D
-          maxTilt={6}
-          className="p-4 bg-card/75 backdrop-blur-md border border-border/80 rounded-2xl shadow-xs hover:shadow-md space-y-1.5 glass-inner transition-all duration-300"
-        >
-          <span className="text-[10px] font-mono font-bold text-foreground/50 uppercase tracking-wider block translate-z-12">
-            Portfolio Value
-          </span>
-          <div className="text-xl font-mono font-extrabold text-foreground tracking-tight translate-z-20">
-            {formatMoney(portfolioValueCents)}
-          </div>
-          <div className="text-[11px] text-foreground/50 font-mono translate-z-12">{assets.length} held positions</div>
-        </Card3D>
+      {/* ─── Portfolio Metrics Bento Grid ─── */}
+      <KpiGrid cols="5">
+        <KpiCard
+          title="Portfolio Value"
+          value={formatMoney(portfolioValueCents)}
+          subtitle={`${assets.length} held positions`}
+          color="default"
+        />
 
-        <Card3D
-          maxTilt={6}
-          className="p-4 bg-card/75 backdrop-blur-md border border-border/80 rounded-2xl shadow-xs hover:shadow-md space-y-1.5 glass-inner transition-all duration-300"
-        >
-          <span className="text-[10px] font-mono font-bold text-foreground/50 uppercase tracking-wider block translate-z-12">
-            Total Cost Basis
-          </span>
-          <div className="text-xl font-mono font-extrabold text-foreground tracking-tight translate-z-20">
-            {formatMoney(costBasisCents)}
-          </div>
-          <div className="text-[11px] text-foreground/50 translate-z-12">Invested principal</div>
-        </Card3D>
+        <KpiCard
+          title="Total Cost Basis"
+          value={formatMoney(costBasisCents)}
+          subtitle="Invested principal"
+          color="default"
+        />
 
-        <Card3D
-          maxTilt={6}
-          className="p-4 bg-card/75 backdrop-blur-md border border-border/80 rounded-2xl shadow-xs hover:shadow-md space-y-1.5 glass-inner transition-all duration-300"
-        >
-          <span className="text-[10px] font-mono font-bold text-foreground/50 uppercase tracking-wider block translate-z-12">
-            Unrealized P&L
-          </span>
-          <div
-            className={clsx(
-              'text-xl font-mono font-extrabold tracking-tight translate-z-20',
-              isPositiveGain ? 'text-emerald-500' : 'text-rose-500'
-            )}
-          >
-            {isPositiveGain ? '+' : ''}
-            {formatMoney(gainLossCents)}
-          </div>
-          <div
-            className={clsx(
-              'text-[11px] font-mono font-semibold translate-z-12',
-              isPositiveGain ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-            )}
-          >
-            {isPositiveGain ? '+' : ''}
-            {gainLossPct}% open return
-          </div>
-        </Card3D>
+        <KpiCard
+          title="Unrealized P&L"
+          value={`${isPositiveGain ? '+' : ''}${formatMoney(gainLossCents)}`}
+          trend={{
+            value: `${gainLossPct}%`,
+            isPositive: isPositiveGain,
+          }}
+          subtitle={`${isPositiveGain ? '+' : ''}${gainLossPct}% open return`}
+          color={isPositiveGain ? 'emerald' : 'rose'}
+        />
 
-        <Card3D
-          maxTilt={6}
-          className="p-4 bg-card/75 backdrop-blur-md border border-border/80 rounded-2xl shadow-xs hover:shadow-md space-y-1.5 glass-inner transition-all duration-300"
-        >
-          <span className="text-[10px] font-mono font-bold text-foreground/50 uppercase tracking-wider block translate-z-12">
-            Realized P&L
-          </span>
-          <div
-            className={clsx(
-              'text-xl font-mono font-extrabold tracking-tight translate-z-20',
-              realizedGainCents >= 0 ? 'text-emerald-500' : 'text-rose-500'
-            )}
-          >
-            {realizedGainCents >= 0 ? '+' : ''}
-            {formatMoney(realizedGainCents)}
-          </div>
-          <div className="text-[11px] text-foreground/50 translate-z-12">From closed positions</div>
-        </Card3D>
+        <KpiCard
+          title="Realized P&L"
+          value={`${realizedGainCents >= 0 ? '+' : ''}${formatMoney(realizedGainCents)}`}
+          subtitle="From closed positions"
+          color={realizedGainCents >= 0 ? 'emerald' : 'rose'}
+        />
 
-        <Card3D
-          maxTilt={6}
-          className="p-4 bg-card/75 backdrop-blur-md border border-border/80 rounded-2xl shadow-xs hover:shadow-md space-y-1.5 glass-inner transition-all duration-300"
-        >
-          <span className="text-[10px] font-mono font-bold text-primary uppercase tracking-wider block translate-z-12">
-            Dividends Income
-          </span>
-          <div className="text-xl font-mono font-extrabold text-primary tracking-tight translate-z-20">
-            {formatMoney(totalDividendsCents)}
-          </div>
-          <div className="text-[11px] text-foreground/50 translate-z-12">Total cash payouts</div>
-        </Card3D>
-      </div>
+        <KpiCard
+          title="Dividends Income"
+          value={formatMoney(totalDividendsCents)}
+          subtitle="Total cash payouts"
+          color="primary"
+        />
+      </KpiGrid>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-border pb-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
+      {/* ─── Tabs ─── */}
+      <div className="flex border-b border-border/70 text-xs sm:text-sm font-semibold space-x-2 sm:space-x-6 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('holdings')}
           className={clsx(
-            'min-h-[44px] sm:min-h-[36px] px-3.5 py-2 text-xs font-bold rounded-token transition-colors whitespace-nowrap shrink-0 flex items-center touch-manipulation cursor-pointer',
+            'min-h-[44px] shrink-0 pb-3 px-2 sm:px-1 transition-all duration-150 border-b-2 cursor-pointer flex items-center font-title-sm text-title-sm',
             activeTab === 'holdings'
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'text-foreground/70 hover:bg-muted'
+              ? 'border-primary text-primary font-bold'
+              : 'border-transparent text-on-surface-variant hover:text-on-surface'
           )}
         >
           Positions ({assets.length})
@@ -511,10 +533,10 @@ export function InvestmentsView() {
         <button
           onClick={() => setActiveTab('transactions')}
           className={clsx(
-            'min-h-[44px] sm:min-h-[36px] px-3.5 py-2 text-xs font-bold rounded-token transition-colors whitespace-nowrap shrink-0 flex items-center touch-manipulation cursor-pointer',
+            'min-h-[44px] shrink-0 pb-3 px-2 sm:px-1 transition-all duration-150 border-b-2 cursor-pointer flex items-center font-title-sm text-title-sm',
             activeTab === 'transactions'
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'text-foreground/70 hover:bg-muted'
+              ? 'border-primary text-primary font-bold'
+              : 'border-transparent text-on-surface-variant hover:text-on-surface'
           )}
         >
           Transactions Ledger ({transactions.length})
@@ -522,10 +544,10 @@ export function InvestmentsView() {
         <button
           onClick={() => setActiveTab('allocation')}
           className={clsx(
-            'min-h-[44px] sm:min-h-[36px] px-3.5 py-2 text-xs font-bold rounded-token transition-colors whitespace-nowrap shrink-0 flex items-center touch-manipulation cursor-pointer',
+            'min-h-[44px] shrink-0 pb-3 px-2 sm:px-1 transition-all duration-150 border-b-2 cursor-pointer flex items-center font-title-sm text-title-sm',
             activeTab === 'allocation'
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'text-foreground/70 hover:bg-muted'
+              ? 'border-primary text-primary font-bold'
+              : 'border-transparent text-on-surface-variant hover:text-on-surface'
           )}
         >
           Asset Allocation
@@ -534,9 +556,10 @@ export function InvestmentsView() {
 
       {/* Tab: Holdings */}
       {activeTab === 'holdings' && (
-        <div className="bg-card border border-border rounded-token overflow-hidden shadow-xs">
-          <div className="p-3 border-b border-border bg-muted/20 font-bold text-xs uppercase tracking-wider text-foreground">
-            Holdings & Valuations
+        <div className="bg-surface-container-lowest border border-border/70 rounded-2xl overflow-hidden shadow-sm">
+          <div className="p-4 border-b border-border/60 bg-surface-container-low/40 font-bold font-title-sm text-on-surface flex items-center justify-between">
+            <span className="font-headline-md text-title-sm">Holdings & Valuations</span>
+            <span className="font-label-caps text-label-caps text-outline font-mono">10⁻⁶ Minor units</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -613,9 +636,9 @@ export function InvestmentsView() {
                             onClick={() => setAssetToDelete(asset)}
                             title={`Delete ${asset.symbol}`}
                             aria-label={`Delete asset ${asset.symbol}`}
-                            className="p-1.5 text-foreground/30 hover:text-rose-500 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            className="neo-btn neo-btn-sm neo-btn-icon neo-btn-delete min-w-[28px] min-h-[28px]"
                           >
-                            <IconTrash size={14} />
+                            <IconTrash size={13} />
                           </button>
                         </td>
                       </tr>
@@ -1018,17 +1041,28 @@ export function InvestmentsView() {
         size="lg"
       >
         <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-foreground/75 mb-1.5">
-              CSV Content
-            </label>
-            <textarea
-              rows={7}
-              value={csvText}
-              onChange={(e) => setCsvText(e.target.value)}
-              className="w-full p-3 font-mono text-base sm:text-xs bg-background border border-border/80 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary leading-relaxed touch-manipulation min-h-[140px]"
-            />
-          </div>
+          <CsvDropzone
+            mutationFn={handleInstantCsvUpload}
+            queryKeyToInvalidate={['investments']}
+            processingMessage="Importing holdings to Cloudflare D1..."
+            title="Drop Portfolio CSV to Import"
+            description="Automatic parsing & pre-flight verification. Immediately saves to database."
+            expectedFormatHint="symbol, name, assetType, shares, avgCostPerShareCents, latestPriceCents"
+          />
+
+          <details className="text-xs text-foreground/75 cursor-pointer group">
+            <summary className="font-semibold text-foreground/70 hover:text-foreground py-1">
+              Manual CSV Textarea & Dry-Run Inspector
+            </summary>
+            <div className="mt-2 space-y-2">
+              <textarea
+                rows={5}
+                value={csvText}
+                onChange={(e) => setCsvText(e.target.value)}
+                className="w-full p-3 font-mono text-base sm:text-xs bg-background border border-border/80 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary leading-relaxed touch-manipulation min-h-[120px]"
+              />
+            </div>
+          </details>
 
           {csvResult && (
             <div className="p-3.5 bg-card/60 border border-border/80 rounded-xl space-y-2 text-xs">
@@ -1097,7 +1131,7 @@ export function InvestmentsView() {
         title="Delete Portfolio Holding"
         description={`Are you sure you want to delete ${assetToDelete?.symbol} (${assetToDelete?.name})? All recorded purchase history and allocation weighting will be removed.`}
         confirmLabel="Delete Asset"
-        variant="danger"
+        variant="destructive"
       />
     </div>
   );

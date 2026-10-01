@@ -1,7 +1,6 @@
 import React from 'react';
 import { useThemeStore } from '../../stores/themeStore';
 import { useAuthStore } from '../../stores/authStore';
-import { Badge } from '../ui/Badge';
 import { NotificationCenter } from '../notifications/NotificationCenter';
 import {
   IconMenu,
@@ -16,6 +15,19 @@ export interface HeaderProps {
   currentView: string;
   onNavigate: (view: string) => void;
 }
+
+const VIEW_TITLES: Record<string, string> = {
+  dashboard: 'Executive Dashboard',
+  tasks: 'Tasks & Projects',
+  finance: 'Finance & Ledger',
+  lending: 'Lending & Payees',
+  investments: 'Investments & Portfolio',
+  notes: 'Notes & AI Prompts',
+  trackers: 'Habits & Fitness',
+  culinary: 'Cooking & Culinary',
+  admin: 'Admin Console',
+  settings: 'System Settings',
+};
 
 export function Header({ currentView, onNavigate }: HeaderProps) {
   const { themeMode, setThemeMode, toggleSidebar, toggleMobileDrawer } = useThemeStore();
@@ -49,10 +61,13 @@ export function Header({ currentView, onNavigate }: HeaderProps) {
     dark: IconMoon,
   }[themeMode];
 
+  const viewTitle = VIEW_TITLES[currentView] || currentView;
+
   return (
-    <header className="sticky top-0 z-30 w-full bg-card/80 backdrop-blur-xl border-b border-border/70 transition-colors shadow-xs pt-[env(safe-area-inset-top,0px)]">
-      <div className="flex items-center justify-between h-16 px-3.5 sm:px-6 md:px-8 max-w-full">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+    <header className="sticky top-0 z-30 w-full bg-surface-container-lowest/80 backdrop-blur-xl border-b border-border/70 transition-colors shadow-[0_1px_8px_rgba(0,0,0,0.03)] pt-[env(safe-area-inset-top,0px)]">
+      <div className="flex items-center justify-between h-16 px-4 sm:px-6 md:px-8 max-w-full">
+        {/* Left: Mobile Toggle & Breadcrumb */}
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => {
               if (typeof window !== 'undefined' && window.innerWidth < 768) {
@@ -62,28 +77,27 @@ export function Header({ currentView, onNavigate }: HeaderProps) {
               }
             }}
             aria-label="Toggle navigation menu"
-            className="flex p-2 rounded-token border border-border/80 text-foreground/70 hover:text-foreground hover:bg-muted/70 transition-colors focus-visible:ring-2 focus-visible:ring-primary active:scale-95 cursor-pointer min-h-[38px] min-w-[38px] items-center justify-center touch-manipulation shrink-0"
+            className="flex p-2 rounded-xl border border-border/70 text-outline hover:text-on-surface hover:bg-surface-container transition-colors focus-visible:ring-2 focus-visible:ring-primary active:scale-95 cursor-pointer min-h-[44px] min-w-[44px] items-center justify-center touch-manipulation shrink-0"
           >
             <IconMenu size={18} />
           </button>
-          <div className="flex items-center gap-2 min-w-0">
-            <img
-              src="/logo.png"
-              alt="LifeOS Logo"
-              className="w-7 h-7 rounded-lg md:hidden object-contain shrink-0"
-            />
-            <span className="font-extrabold text-sm sm:text-base capitalize tracking-tight text-foreground truncate">
-              {currentView}
+
+          <div className="flex items-center gap-1.5 font-label-md text-label-md min-w-0">
+            <span
+              onClick={() => onNavigate('dashboard')}
+              className="text-on-surface-variant hover:text-on-surface cursor-pointer font-medium transition-colors"
+            >
+              LifeOS
             </span>
-            {user?.role === 'admin' && (
-              <Badge variant="primary" size="sm" className="hidden sm:inline-flex shrink-0">
-                Admin
-              </Badge>
-            )}
+            <span className="text-outline-variant font-light">/</span>
+            <span className="text-on-surface font-semibold truncate">
+              {viewTitle}
+            </span>
+
             {isOffline && (
               <span
                 role="status"
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse shadow-xs shrink-0"
+                className="ml-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse shadow-xs shrink-0"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                 <span className="hidden xs:inline">Offline</span>
@@ -92,36 +106,39 @@ export function Header({ currentView, onNavigate }: HeaderProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* Quick Find Mobile Trigger */}
+        {/* Right: Quick Search capsule, Notifications, Theme, Profile */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Quick Find Trigger Capsule */}
+          <button
+            onClick={() => {
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
+            }}
+            type="button"
+            className="hidden md:flex items-center gap-2 bg-surface-container-low hover:bg-surface-container px-3 py-1.5 rounded-xl w-64 lg:w-72 text-on-surface-variant cursor-pointer transition-colors border border-transparent hover:border-border/60"
+            title="Search or execute (⌘K)"
+          >
+            <IconSearch size={16} className="text-outline" />
+            <span className="font-body-sm text-body-sm flex-1 text-left text-outline truncate">
+              Search or execute command...
+            </span>
+            <kbd className="font-label-caps text-label-caps bg-surface-container-highest px-1.5 py-0.5 rounded text-on-surface-variant shadow-sm font-mono">
+              ⌘K
+            </kbd>
+          </button>
+
+          {/* Quick Find Mobile Button */}
           <button
             onClick={() => {
               window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
             }}
             type="button"
             aria-label="Open Quick Find"
-            className="sm:hidden p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-foreground/70 hover:text-foreground rounded-token border border-border/80 bg-card/60 active:scale-95 cursor-pointer shadow-xs touch-manipulation"
+            className="md:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-outline hover:text-on-surface rounded-xl border border-border/70 bg-surface-container-low active:scale-95 cursor-pointer touch-manipulation"
           >
-            <IconSearch size={17} />
+            <IconSearch size={18} />
           </button>
 
-          {/* Quick Find Desktop (Ctrl+K) */}
-          <button
-            onClick={() => {
-              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
-            }}
-            type="button"
-            className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-foreground/60 border border-border/80 rounded-token bg-background/80 hover:bg-muted hover:text-foreground transition-all duration-150 cursor-pointer shadow-xs active:scale-98 touch-manipulation"
-            title="Command Palette (Ctrl+K)"
-          >
-            <IconSearch size={14} className="text-foreground/40" />
-            <span>Quick Find</span>
-            <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-muted border border-border/60 rounded text-foreground/70">
-              ⌘K
-            </kbd>
-          </button>
-
-          {/* In-App Notifications */}
+          {/* Notifications Center */}
           <NotificationCenter onNavigate={onNavigate} />
 
           {/* Theme Cycler */}
@@ -129,26 +146,38 @@ export function Header({ currentView, onNavigate }: HeaderProps) {
             onClick={cycleTheme}
             type="button"
             aria-label={`Current theme: ${themeMode}. Click to toggle`}
-            className="p-2 sm:p-2 min-h-[40px] min-w-[40px] sm:min-h-[36px] sm:min-w-[36px] flex items-center justify-center text-foreground/70 hover:text-foreground rounded-token border border-border/80 bg-card/60 hover:bg-muted/70 transition-all duration-150 active:scale-95 focus-visible:ring-2 focus-visible:ring-primary cursor-pointer shadow-xs touch-manipulation"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-outline hover:text-on-surface rounded-xl border border-border/70 bg-surface-container-low hover:bg-surface-container transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-primary cursor-pointer touch-manipulation"
             title={`Theme: ${themeMode}`}
           >
-            <ThemeIcon size={17} />
+            <ThemeIcon size={18} />
           </button>
 
-          {/* User Account / Session */}
+          <div className="h-6 w-px bg-surface-container hidden sm:block" />
+
+          {/* User Account Capsule */}
           {user && (
-            <div className="flex items-center gap-1 sm:gap-2 pl-1 sm:pl-2 border-l border-border/70">
-              <button
+            <div className="flex items-center gap-2 bg-surface-container-low px-2 py-1 rounded-full border border-border/40">
+              <div
                 onClick={() => onNavigate('settings')}
-                className="hidden sm:flex text-xs font-semibold text-foreground/80 hover:text-primary transition-colors text-left px-2 py-1.5 rounded-token hover:bg-muted/60 cursor-pointer min-h-[44px] sm:min-h-[32px] items-center touch-manipulation"
+                className="flex items-center gap-2 cursor-pointer group"
                 title="Open Settings"
               >
-                <span className="block truncate max-w-[90px] sm:max-w-[120px]">{user.name}</span>
-              </button>
+                <div className="w-7 h-7 rounded-full bg-primary-fixed text-primary font-bold text-xs flex items-center justify-center ring-2 ring-surface-container-lowest">
+                  {user.name?.charAt(0).toUpperCase() || 'S'}
+                </div>
+                <div className="hidden sm:flex flex-col text-left pr-1">
+                  <span className="font-label-md text-label-md text-on-surface font-semibold leading-tight group-hover:text-primary transition-colors">
+                    {user.name}
+                  </span>
+                  <span className="font-body-sm text-body-sm text-secondary font-medium leading-none">
+                    {user.role === 'admin' ? 'Owner • Synced' : 'Member • Synced'}
+                  </span>
+                </div>
+              </div>
               <button
                 onClick={logout}
-                className="p-2 sm:p-1.5 rounded-token border border-border/80 text-foreground/60 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/30 transition-all active:scale-95 cursor-pointer min-h-[40px] min-w-[40px] sm:min-h-[32px] sm:min-w-[32px] flex items-center justify-center touch-manipulation"
-                title="Sign Out"
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-outline hover:text-rose-500 hover:bg-rose-500/10 rounded-full transition-colors cursor-pointer touch-manipulation"
+                title="Sign out"
                 aria-label="Sign out"
               >
                 <IconLogOut size={16} />

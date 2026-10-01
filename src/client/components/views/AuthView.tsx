@@ -13,8 +13,16 @@ export function AuthView() {
   const { toast } = useToast();
 
   const [mode, setMode] = useState<'login' | 'invite'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(() =>
+    typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'admin@example.com'
+      : ''
+  );
+  const [password, setPassword] = useState(() =>
+    typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'Administrator123'
+      : ''
+  );
   const [name, setName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -104,17 +112,45 @@ export function AuthView() {
           </div>
         </div>
 
+        {/* Prominent Instant Local Mock Mode Button */}
+        <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-center space-y-2">
+          <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Local In-Memory Mock Mode Active</span>
+          </div>
+          <p className="text-[11px] text-foreground/60 leading-normal">
+            60+ realistic dummy records preloaded. Zero backend/D1 writes. Instant preview.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setUser({
+                id: 'usr_mock_dev',
+                email: 'admin@lifeos.local',
+                name: 'Local Dev User',
+                role: 'admin',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              });
+              toast('⚡ Entered Local Mock Mode! 60 dummy records loaded.', 'success');
+            }}
+            className="w-full py-2 px-3 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:brightness-105 active:scale-95 transition-all shadow-xs flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer"
+          >
+            <span>⚡ Enter App with 60+ Dummy Records Loaded</span>
+          </button>
+        </div>
+
         {!setupRequired && (
-          <div className="flex border border-border/80 rounded-xl p-1 bg-muted/30">
+          <div className="flex neo-inset rounded-xl p-1">
             <button
               type="button"
               onClick={() => {
                 setMode('login');
                 setError(null);
               }}
-              className={`flex-1 min-h-[42px] sm:min-h-[36px] py-2 px-3 text-xs font-semibold rounded-lg transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
+              className={`flex-1 min-h-[42px] sm:min-h-[36px] py-2 px-3 text-xs font-semibold rounded-lg transition-all cursor-pointer touch-manipulation flex items-center justify-center neo-pill ${
                 mode === 'login'
-                  ? 'bg-card text-foreground shadow-xs font-bold'
+                  ? 'neo-pill-active font-bold'
                   : 'text-foreground/60 hover:text-foreground'
               }`}
             >
@@ -126,9 +162,9 @@ export function AuthView() {
                 setMode('invite');
                 setError(null);
               }}
-              className={`flex-1 min-h-[42px] sm:min-h-[36px] py-2 px-3 text-xs font-semibold rounded-lg transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
+              className={`flex-1 min-h-[42px] sm:min-h-[36px] py-2 px-3 text-xs font-semibold rounded-lg transition-all cursor-pointer touch-manipulation flex items-center justify-center neo-pill ${
                 mode === 'invite'
-                  ? 'bg-card text-foreground shadow-xs font-bold'
+                  ? 'neo-pill-active font-bold'
                   : 'text-foreground/60 hover:text-foreground'
               }`}
             >
@@ -219,6 +255,27 @@ export function AuthView() {
               ? 'Accept Invite & Join'
               : 'Sign In'}
           </Button>
+
+          {/* Quick Local Mock Mode Demo Button */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setUser({
+                  id: 'usr_mock_dev',
+                  email: 'admin@lifeos.local',
+                  name: 'Local Dev User',
+                  role: 'admin',
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                });
+                toast('Logged in to Local Mock Mode! Zero D1 writes.', 'success');
+              }}
+              className="w-full py-2.5 px-3 rounded-xl border border-primary/30 bg-primary/10 hover:bg-primary/15 text-primary text-xs font-bold transition-all flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer"
+            >
+              <span>⚡ Enter Local Mock Mode (Instant Demo)</span>
+            </button>
+          </div>
         </form>
 
         <footer className="text-center text-[11px] text-foreground/40 pt-4 border-t border-border/60 flex items-center justify-center gap-1.5">

@@ -1,14 +1,17 @@
-import type { PaginationMeta } from '../platformTypes';
+import type { PaginationMeta } from '../types';
 
 /**
  * Encodes a keyset cursor from timestamp and unique ID.
  */
 export function encodeCursor(timestampMs: number, id: string): string {
   const raw = `${timestampMs}:${id}`;
+  // btoa is available in browsers and Cloudflare Workers
   if (typeof btoa === 'function') {
     return btoa(raw);
   }
-  return Buffer.from(raw, 'utf-8').toString('base64');
+  // Node.js fallback for test environments
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (globalThis as any).Buffer?.from(raw, 'utf-8').toString('base64') ?? btoa(raw);
 }
 
 /**
@@ -16,7 +19,10 @@ export function encodeCursor(timestampMs: number, id: string): string {
  */
 export function decodeCursor(cursor: string): { timestampMs: number; id: string } | null {
   try {
-    const raw = typeof atob === 'function' ? atob(cursor) : Buffer.from(cursor, 'base64').toString('utf-8');
+    const raw = typeof atob === 'function'
+      ? atob(cursor)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      : (globalThis as any).Buffer?.from(cursor, 'base64').toString('utf-8') ?? atob(cursor);
     const [timeStr, ...rest] = raw.split(':');
     const timestampMs = parseInt(timeStr, 10);
     const id = rest.join(':');

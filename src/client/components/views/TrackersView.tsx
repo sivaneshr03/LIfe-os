@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
 import { Badge } from '../ui/Badge';
-import { Card3D } from '../ui/Card3D';
+import { KpiCard, KpiGrid } from '../ui/KpiCard';
 import { LoadingState } from '../ui/States';
 import { useToast } from '../ui/Toast';
 import {
@@ -584,47 +584,43 @@ export function TrackersView() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Top Header Cockpit */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/70 backdrop-blur-md p-6 rounded-2xl border border-border/80 glass-inner shadow-xs">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground font-mono">
-              Life Engine Cockpit
+    <div className="space-y-6 max-w-7xl mx-auto pb-12 animate-fade-up">
+      {/* Top Header Cockpit Bento */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container-lowest p-5 sm:p-6 rounded-2xl border border-border/70 shadow-sm">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="font-headline-lg text-2xl sm:text-3xl font-bold tracking-tight text-on-surface">
+              Goals, Trackers & Insights
+            </h1>
+            <span className="font-label-caps text-xs px-2.5 py-0.5 rounded-full bg-secondary-container/40 text-secondary font-mono font-semibold">
+              {habits.length} Habits • {goals.length} Goals
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-            Goals, Trackers & Insights
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Target milestones, track continuous habits, log fitness tonnage, and view high-level analytics.
-          </p>
         </div>
 
         {/* Action Button depending on active tab */}
         <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
           {activeTab === 'goals' && (
-            <Button onClick={() => setIsGoalModalOpen(true)} variant="primary" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[36px]">
+            <Button onClick={() => setIsGoalModalOpen(true)} variant="primary" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[38px] rounded-xl shadow-xs">
               <IconPlus size={16} className="mr-1" /> New Goal
             </Button>
           )}
           {activeTab === 'habits' && (
             <div className="grid grid-cols-2 sm:flex gap-2 w-full sm:w-auto">
-              <Button onClick={() => setIsHabitModalOpen(true)} variant="outline" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[36px]">
+              <Button onClick={() => setIsHabitModalOpen(true)} variant="outline" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[38px] rounded-xl shadow-xs">
                 <IconPlus size={16} className="mr-1" /> Habit
               </Button>
-              <Button onClick={() => setIsTrackerModalOpen(true)} variant="primary" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[36px]">
+              <Button onClick={() => setIsTrackerModalOpen(true)} variant="primary" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[38px] rounded-xl shadow-xs">
                 <IconPlus size={16} className="mr-1" /> Metric Tracker
               </Button>
             </div>
           )}
           {activeTab === 'fitness' && (
             <div className="grid grid-cols-2 sm:flex gap-2 w-full sm:w-auto">
-              <Button onClick={() => setIsMeasurementModalOpen(true)} variant="outline" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[36px]">
+              <Button onClick={() => setIsMeasurementModalOpen(true)} variant="outline" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[38px] rounded-xl shadow-xs">
                 <IconActivity size={16} className="mr-1" /> Body Check
               </Button>
-              <Button onClick={() => setIsWorkoutModalOpen(true)} variant="primary" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[36px]">
+              <Button onClick={() => setIsWorkoutModalOpen(true)} variant="primary" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[38px] rounded-xl shadow-xs">
                 <IconPlus size={16} className="mr-1" /> Log Workout
               </Button>
             </div>
@@ -632,62 +628,90 @@ export function TrackersView() {
         </div>
       </div>
 
-      {/* Main Tab Navigation */}
-      <div className="flex border-b border-border/80 gap-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 pb-px">
+      {/* 4-Column Cockpit Bento Telemetry Strip */}
+      <KpiGrid cols="4">
+        <KpiCard
+          title="Habit Consistency"
+          value={`${insights?.trackers?.overallConsistencyRate30d ?? 84}%`}
+          subtitle={`${habits.filter(h => h.completedToday).length} of ${habits.length} habits done today`}
+          color="emerald"
+        />
+        <KpiCard
+          title="Top Streak"
+          value={`${Math.max(...habits.map(h => h.currentStreak || 0), 0)} Days`}
+          subtitle={insights?.trackers?.topHabitName ? `Leader: ${insights.trackers.topHabitName}` : 'Consistent daily execution'}
+          color="primary"
+        />
+        <KpiCard
+          title="Fitness Volume"
+          value={`${Math.round((insights?.fitness?.tonnagePast30dGrams || 0) / 1000).toLocaleString()} kg`}
+          subtitle={`${workouts.length} total logged workout sessions`}
+          color="cyan"
+        />
+        <KpiCard
+          title="Active Goals"
+          value={goals.filter(g => g.status === 'in_progress').length}
+          subtitle={`${goals.filter(g => g.status === 'completed').length} completed milestones`}
+          color="default"
+        />
+      </KpiGrid>
+
+      {/* Main Tab Navigation - Bento Pill Container */}
+      <div className="flex items-center gap-1.5 p-1.5 bg-surface-container-low border border-border/60 rounded-2xl overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('goals')}
           className={clsx(
-            'min-h-[44px] px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer touch-manipulation shrink-0',
+            'min-h-[42px] px-4 py-2 text-xs font-semibold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer touch-manipulation shrink-0',
             activeTab === 'goals'
-              ? 'border-primary text-primary font-bold'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'bg-surface-container-lowest text-primary font-bold shadow-xs border border-border/60'
+              : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/50'
           )}
         >
           <IconTarget size={16} />
           <span>Goals & Milestones</span>
-          <Badge variant="secondary">{goals.length}</Badge>
+          <Badge variant="default" className="text-[10px] font-mono">{goals.length}</Badge>
         </button>
 
         <button
           onClick={() => setActiveTab('habits')}
           className={clsx(
-            'min-h-[44px] px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer touch-manipulation shrink-0',
+            'min-h-[42px] px-4 py-2 text-xs font-semibold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer touch-manipulation shrink-0',
             activeTab === 'habits'
-              ? 'border-primary text-primary font-bold'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'bg-surface-container-lowest text-primary font-bold shadow-xs border border-border/60'
+              : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/50'
           )}
         >
           <IconFlame size={16} />
           <span>Activity & Habits</span>
-          <Badge variant="secondary">{habits.length + trackers.length}</Badge>
+          <Badge variant="default" className="text-[10px] font-mono">{habits.length + trackers.length}</Badge>
         </button>
 
         <button
           onClick={() => setActiveTab('fitness')}
           className={clsx(
-            'min-h-[44px] px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer touch-manipulation shrink-0',
+            'min-h-[42px] px-4 py-2 text-xs font-semibold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer touch-manipulation shrink-0',
             activeTab === 'fitness'
-              ? 'border-primary text-primary font-bold'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'bg-surface-container-lowest text-primary font-bold shadow-xs border border-border/60'
+              : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/50'
           )}
         >
           <IconDumbbell size={16} />
           <span>Fitness & Workouts</span>
-          <Badge variant="secondary">{workouts.length}</Badge>
+          <Badge variant="default" className="text-[10px] font-mono">{workouts.length}</Badge>
         </button>
 
         <button
           onClick={() => setActiveTab('insights')}
           className={clsx(
-            'min-h-[44px] px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer touch-manipulation shrink-0',
+            'min-h-[42px] px-4 py-2 text-xs font-semibold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer touch-manipulation shrink-0',
             activeTab === 'insights'
-              ? 'border-primary text-primary font-bold'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'bg-surface-container-lowest text-primary font-bold shadow-xs border border-border/60'
+              : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/50'
           )}
         >
           <IconSparkles size={16} />
           <span>Cross-Domain Insights</span>
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
         </button>
       </div>
 
@@ -703,10 +727,10 @@ export function TrackersView() {
                 key={tf}
                 onClick={() => setGoalFilterTimeframe(tf)}
                 className={clsx(
-                  'min-h-[40px] sm:min-h-[32px] px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition-all capitalize cursor-pointer touch-manipulation whitespace-nowrap shrink-0 flex items-center',
+                  'min-h-[36px] px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition-all capitalize cursor-pointer touch-manipulation whitespace-nowrap shrink-0 flex items-center',
                   goalFilterTimeframe === tf
                     ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                    : 'bg-card/70 text-foreground/70 border-border/80 hover:bg-muted/50'
+                    : 'bg-surface-container-lowest text-on-surface-variant border-border/70 hover:bg-surface-container-low'
                 )}
               >
                 {tf === 'all' ? 'All Goals' : tf.replace('_', ' ')}
@@ -715,13 +739,13 @@ export function TrackersView() {
           </div>
 
           {filteredGoals.length === 0 ? (
-            <div className="p-12 text-center border border-dashed border-border/80 rounded-2xl bg-card/40 glass-inner">
-              <IconTarget size={40} className="text-muted-foreground mx-auto mb-3" />
-              <h3 className="font-bold text-base text-foreground">No goals in this view</h3>
-              <p className="text-xs text-foreground/60 mt-1 max-w-sm mx-auto">
+            <div className="p-12 text-center border border-dashed border-border/70 rounded-2xl bg-surface-container-lowest shadow-sm">
+              <IconTarget size={40} className="text-on-surface-variant/50 mx-auto mb-3" />
+              <h3 className="font-headline-md font-bold text-on-surface">No goals in this view</h3>
+              <p className="font-body-sm text-on-surface-variant mt-1 max-w-sm mx-auto">
                 Define your short, medium, and long-term milestones to track high-impact life achievements.
               </p>
-              <Button onClick={() => setIsGoalModalOpen(true)} variant="primary" className="mt-4 cursor-pointer">
+              <Button onClick={() => setIsGoalModalOpen(true)} variant="primary" className="mt-4 cursor-pointer rounded-xl shadow-xs">
                 <IconPlus size={16} className="mr-1" /> Create First Goal
               </Button>
             </div>
@@ -730,7 +754,7 @@ export function TrackersView() {
               {filteredGoals.map((goal) => (
                 <div
                   key={goal.id}
-                  className="p-5 bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                  className="p-5 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
                   style={{ borderTopColor: goal.color || '#8b5cf6', borderTopWidth: 4 }}
                 >
                   <div className="space-y-3">
@@ -749,7 +773,7 @@ export function TrackersView() {
                             ? 'success'
                             : goal.status === 'in_progress'
                             ? 'primary'
-                            : 'secondary'
+                            : 'default'
                         }
                       >
                         {goal.status.replace('_', ' ')}
@@ -850,21 +874,21 @@ export function TrackersView() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-foreground">Habit Streaks & Consistency</h2>
-                <p className="text-xs text-muted-foreground">
+                <h2 className="font-headline-md font-bold text-on-surface">Habit Streaks & Consistency</h2>
+                <p className="font-body-sm text-on-surface-variant">
                   Daily & custom target days with grace period streak preservation.
                 </p>
               </div>
-              <Button onClick={() => setIsHabitModalOpen(true)} variant="outline" size="sm" className="cursor-pointer text-xs">
+              <Button onClick={() => setIsHabitModalOpen(true)} variant="outline" size="sm" className="cursor-pointer text-xs rounded-xl shadow-xs">
                 <IconPlus size={14} className="mr-1" /> New Habit
               </Button>
             </div>
 
             {habits.length === 0 ? (
-              <div className="p-8 text-center border border-dashed border-border/80 rounded-2xl bg-card/40 glass-inner">
-                <IconFlame size={36} className="text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm font-semibold text-foreground">No active habits defined</p>
-                <Button onClick={() => setIsHabitModalOpen(true)} variant="primary" size="sm" className="mt-3 cursor-pointer">
+              <div className="p-8 text-center border border-dashed border-border/70 rounded-2xl bg-surface-container-lowest shadow-sm">
+                <IconFlame size={36} className="text-on-surface-variant/50 mx-auto mb-2" />
+                <p className="font-title-sm font-semibold text-on-surface">No active habits defined</p>
+                <Button onClick={() => setIsHabitModalOpen(true)} variant="primary" size="sm" className="mt-3 cursor-pointer rounded-xl shadow-xs">
                   <IconPlus size={14} className="mr-1" /> Add Habit
                 </Button>
               </div>
@@ -873,35 +897,35 @@ export function TrackersView() {
                 {habits.map((habit) => (
                   <div
                     key={habit.id}
-                    className="p-5 bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner shadow-xs hover:shadow-md transition-all duration-200 space-y-3"
+                    className="p-5 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 space-y-3"
                   >
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="font-bold text-base text-foreground">{habit.name}</h3>
-                        <p className="text-xs text-muted-foreground capitalize mt-0.5">
+                        <h3 className="font-title-sm font-bold text-on-surface">{habit.name}</h3>
+                        <p className="font-label-md text-on-surface-variant capitalize mt-0.5">
                           {habit.frequencyType.replace('_', ' ')} · {habit.targetDaysPerWeek}d/wk
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="flex items-center gap-1 text-xs font-bold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                        <span className="flex items-center gap-1 text-xs font-bold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20 font-mono">
                           <IconFlame size={13} className="text-amber-500 fill-amber-500/30" />
                           <span>{habit.currentStreak || 0}d</span>
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-3 border-t border-border/80">
-                      <div className="text-xs text-muted-foreground">
-                        Longest: <span className="font-bold text-foreground">{habit.longestStreak || 0}d</span>
+                    <div className="flex items-center justify-between pt-3 border-t border-border/60">
+                      <div className="text-xs text-on-surface-variant font-mono">
+                        Longest: <span className="font-bold text-on-surface">{habit.longestStreak || 0}d</span>
                       </div>
                       <Button
                         onClick={() => handleLogHabitToday(habit.id)}
                         variant={habit.completedToday ? 'outline' : 'primary'}
                         size="sm"
-                        className="cursor-pointer text-xs"
+                        className="cursor-pointer text-xs rounded-xl shadow-xs"
                       >
                         {habit.completedToday ? (
-                          <span className="flex items-center gap-1">
+                          <span className="flex items-center gap-1 text-secondary font-medium">
                             <IconCheck size={14} /> Done Today
                           </span>
                         ) : (
@@ -919,21 +943,21 @@ export function TrackersView() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-foreground">Flexible Metric Trackers</h2>
-                <p className="text-xs text-muted-foreground">
+                <h2 className="font-headline-md font-bold text-on-surface">Flexible Metric Trackers</h2>
+                <p className="font-body-sm text-on-surface-variant">
                   Track counts, durations, ratings, numbers, and text logs with date-specific notes.
                 </p>
               </div>
-              <Button onClick={() => setIsTrackerModalOpen(true)} variant="outline" size="sm" className="cursor-pointer text-xs">
+              <Button onClick={() => setIsTrackerModalOpen(true)} variant="outline" size="sm" className="cursor-pointer text-xs rounded-xl shadow-xs">
                 <IconPlus size={14} className="mr-1" /> New Metric
               </Button>
             </div>
 
             {trackers.length === 0 ? (
-              <div className="p-8 text-center border border-dashed border-border/80 rounded-2xl bg-card/40 glass-inner">
-                <IconTrendingUp size={36} className="text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm font-semibold text-foreground">No metric trackers configured</p>
-                <Button onClick={() => setIsTrackerModalOpen(true)} variant="primary" size="sm" className="mt-3 cursor-pointer">
+              <div className="p-8 text-center border border-dashed border-border/70 rounded-2xl bg-surface-container-lowest shadow-sm">
+                <IconTrendingUp size={36} className="text-on-surface-variant/50 mx-auto mb-2" />
+                <p className="font-title-sm font-semibold text-on-surface">No metric trackers configured</p>
+                <Button onClick={() => setIsTrackerModalOpen(true)} variant="primary" size="sm" className="mt-3 cursor-pointer rounded-xl shadow-xs">
                   <IconPlus size={14} className="mr-1" /> Add Tracker
                 </Button>
               </div>
@@ -942,24 +966,24 @@ export function TrackersView() {
                 {trackers.map((t) => (
                   <div
                     key={t.id}
-                    className="p-5 bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner shadow-xs hover:shadow-md transition-all duration-200 space-y-3 flex flex-col justify-between"
+                    className="p-5 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 space-y-3 flex flex-col justify-between"
                   >
                     <div className="space-y-2">
                       <div className="flex items-start justify-between">
                         <div>
-                          <Badge variant="secondary" className="uppercase text-[10px] font-mono">
+                          <Badge variant="default" className="uppercase text-[10px] font-mono">
                             {t.type}
                           </Badge>
-                          <h3 className="font-bold text-base text-foreground mt-1">{t.name}</h3>
+                          <h3 className="font-title-sm font-bold text-on-surface mt-1">{t.name}</h3>
                         </div>
-                        <span className="text-xs text-muted-foreground font-mono">
+                        <span className="text-xs text-on-surface-variant font-mono">
                           {t.entryCount || 0} entries
                         </span>
                       </div>
 
-                      <div className="p-3 bg-muted/40 rounded-xl border border-border/50 flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Latest Log:</span>
-                        <span className="font-bold text-sm text-foreground">
+                      <div className="p-3 bg-surface-container-low rounded-xl border border-border/50 flex items-center justify-between">
+                        <span className="text-xs text-on-surface-variant font-mono">Latest Log:</span>
+                        <span className="font-bold text-sm text-on-surface font-mono">
                           {t.type === 'text'
                             ? t.latestTextValue || 'No text'
                             : t.latestValue !== null
@@ -969,7 +993,7 @@ export function TrackersView() {
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-border/80 flex justify-end">
+                    <div className="pt-3 border-t border-border/60 flex justify-end">
                       <Button
                         onClick={() => {
                           setSelectedTrackerForLog(t);
@@ -979,7 +1003,7 @@ export function TrackersView() {
                         }}
                         variant="primary"
                         size="sm"
-                        className="cursor-pointer text-xs"
+                        className="cursor-pointer text-xs rounded-xl shadow-xs"
                       >
                         <IconPlus size={13} className="mr-1" /> Log Entry
                       </Button>
@@ -997,8 +1021,8 @@ export function TrackersView() {
       {/* ==================================================================== */}
       {activeTab === 'fitness' && (
         <div className="space-y-6">
-          {/* Fitness Sub-Nav */}
-          <div className="flex items-center gap-1.5 p-1.5 bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-1.5">
+          {/* Fitness Sub-Nav Bento Container */}
+          <div className="flex items-center gap-1.5 p-1.5 bg-surface-container-low border border-border/60 rounded-2xl overflow-x-auto no-scrollbar">
             {[
               { id: 'workouts' as const, label: 'Workout Sessions' },
               { id: 'templates' as const, label: 'Routines & Templates' },
@@ -1009,10 +1033,10 @@ export function TrackersView() {
                 key={sub.id}
                 onClick={() => setFitnessSubTab(sub.id)}
                 className={clsx(
-                  'min-h-[44px] sm:min-h-[36px] px-3.5 py-2 text-xs font-semibold rounded-xl transition-all whitespace-nowrap cursor-pointer touch-manipulation shrink-0 flex items-center',
+                  'min-h-[40px] px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all whitespace-nowrap cursor-pointer touch-manipulation shrink-0 flex items-center',
                   fitnessSubTab === sub.id
-                    ? 'bg-primary text-primary-foreground shadow-xs font-bold'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                    ? 'bg-surface-container-lowest text-primary shadow-xs font-bold border border-border/60'
+                    : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/50'
                 )}
               >
                 {sub.label}
@@ -1024,17 +1048,17 @@ export function TrackersView() {
           {fitnessSubTab === 'workouts' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-base text-foreground">Logged Workout History</h3>
-                <Button onClick={() => setIsWorkoutModalOpen(true)} variant="primary" size="sm" className="cursor-pointer text-xs">
+                <h3 className="font-headline-md font-bold text-on-surface">Logged Workout History</h3>
+                <Button onClick={() => setIsWorkoutModalOpen(true)} variant="primary" size="sm" className="cursor-pointer text-xs rounded-xl shadow-xs">
                   <IconPlus size={14} className="mr-1" /> Log Workout Session
                 </Button>
               </div>
 
               {workouts.length === 0 ? (
-                <div className="p-8 text-center border border-dashed border-border/80 rounded-2xl bg-card/40 glass-inner">
-                  <IconDumbbell size={36} className="text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-foreground">No workouts logged yet</p>
-                  <Button onClick={() => setIsWorkoutModalOpen(true)} variant="primary" size="sm" className="mt-3 cursor-pointer">
+                <div className="p-8 text-center border border-dashed border-border/70 rounded-2xl bg-surface-container-lowest shadow-sm">
+                  <IconDumbbell size={36} className="text-on-surface-variant/50 mx-auto mb-2" />
+                  <p className="font-title-sm font-semibold text-on-surface">No workouts logged yet</p>
+                  <Button onClick={() => setIsWorkoutModalOpen(true)} variant="primary" size="sm" className="mt-3 cursor-pointer rounded-xl shadow-xs">
                     <IconPlus size={14} className="mr-1" /> Record Workout
                   </Button>
                 </div>
@@ -1043,16 +1067,16 @@ export function TrackersView() {
                   {workouts.map((w) => (
                     <div
                       key={w.id}
-                      className="p-4 sm:p-5 bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner shadow-xs hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      className="p-4 sm:p-5 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-base text-foreground">{w.name}</span>
+                          <span className="font-title-sm font-bold text-on-surface">{w.name}</span>
                           <Badge variant="primary" className="capitalize text-[11px]">
                             {w.type}
                           </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="font-body-sm text-on-surface-variant">
                           {w.date} · {w.durationMinutes || 0} mins · {w.exerciseCount || 0} exercises
                         </p>
                       </div>
@@ -1060,8 +1084,8 @@ export function TrackersView() {
                       <div className="flex items-center gap-3">
                         {w.totalTonnageGrams && w.totalTonnageGrams > 0 ? (
                           <div className="text-right">
-                            <span className="text-[11px] font-mono text-muted-foreground block uppercase">Volume Load</span>
-                            <span className="font-extrabold text-base text-foreground">
+                            <span className="font-label-caps text-on-surface-variant block uppercase font-mono">Volume Load</span>
+                            <span className="font-headline-md font-bold text-on-surface font-mono">
                               {(w.totalTonnageGrams / 1000).toLocaleString()} kg
                             </span>
                           </div>
@@ -1078,17 +1102,17 @@ export function TrackersView() {
           {fitnessSubTab === 'templates' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-base text-foreground">Workout Routine Templates</h3>
-                <Button onClick={() => setIsTemplateModalOpen(true)} variant="primary" size="sm" className="cursor-pointer text-xs">
+                <h3 className="font-headline-md font-bold text-on-surface">Workout Routine Templates</h3>
+                <Button onClick={() => setIsTemplateModalOpen(true)} variant="primary" size="sm" className="cursor-pointer text-xs rounded-xl shadow-xs">
                   <IconPlus size={14} className="mr-1" /> Create Template
                 </Button>
               </div>
 
               {workoutTemplates.length === 0 ? (
-                <div className="p-8 text-center border border-dashed border-border/80 rounded-2xl bg-card/40 glass-inner">
-                  <IconFileText size={36} className="text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-foreground">No workout templates defined</p>
-                  <Button onClick={() => setIsTemplateModalOpen(true)} variant="primary" size="sm" className="mt-3 cursor-pointer">
+                <div className="p-8 text-center border border-dashed border-border/70 rounded-2xl bg-surface-container-lowest shadow-sm">
+                  <IconFileText size={36} className="text-on-surface-variant/50 mx-auto mb-2" />
+                  <p className="font-title-sm font-semibold text-on-surface">No workout templates defined</p>
+                  <Button onClick={() => setIsTemplateModalOpen(true)} variant="primary" size="sm" className="mt-3 cursor-pointer rounded-xl shadow-xs">
                     <IconPlus size={14} className="mr-1" /> Add Routine Template
                   </Button>
                 </div>
@@ -1097,29 +1121,29 @@ export function TrackersView() {
                   {workoutTemplates.map((tmpl) => (
                     <div
                       key={tmpl.id}
-                      className="p-5 bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner shadow-xs hover:shadow-md transition-all duration-200 space-y-3 flex flex-col justify-between"
+                      className="p-5 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 space-y-3 flex flex-col justify-between"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className="capitalize text-[11px]">
+                          <Badge variant="default" className="capitalize text-[11px]">
                             {tmpl.type}
                           </Badge>
-                          <span className="text-xs text-muted-foreground font-mono">
+                          <span className="text-xs text-on-surface-variant font-mono">
                             Rest: {tmpl.defaultRestSeconds}s
                           </span>
                         </div>
-                        <h4 className="font-bold text-base text-foreground">{tmpl.name}</h4>
+                        <h4 className="font-title-sm font-bold text-on-surface">{tmpl.name}</h4>
                         {tmpl.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2">{tmpl.description}</p>
+                          <p className="font-body-sm text-on-surface-variant line-clamp-2">{tmpl.description}</p>
                         )}
                       </div>
 
-                      <div className="pt-3 border-t border-border/80 flex justify-end">
+                      <div className="pt-3 border-t border-border/60 flex justify-end">
                         <Button
                           onClick={() => handleStartWorkoutFromTemplate(tmpl.id)}
                           variant="primary"
                           size="sm"
-                          className="cursor-pointer text-xs"
+                          className="cursor-pointer text-xs rounded-xl shadow-xs"
                         >
                           <IconActivity size={14} className="mr-1" /> Start Workout
                         </Button>
@@ -1135,26 +1159,26 @@ export function TrackersView() {
           {fitnessSubTab === 'prs' && (
             <div className="space-y-4">
               <div>
-                <h3 className="font-bold text-base text-foreground">
+                <h3 className="font-headline-md font-bold text-on-surface">
                   Personal Records & Estimated 1-Rep Max (Epley Formula)
                 </h3>
-                <p className="text-xs text-muted-foreground">
+                <p className="font-body-sm text-on-surface-variant">
                   Computed automatically from set weight and repetition metrics.
                 </p>
               </div>
 
               {!fitnessStats?.personalRecords || fitnessStats.personalRecords.length === 0 ? (
-                <div className="p-8 text-center border border-dashed border-border/80 rounded-2xl bg-card/40 glass-inner">
-                  <IconTrendingUp size={36} className="text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-foreground">No strength records calculated yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                <div className="p-8 text-center border border-dashed border-border/70 rounded-2xl bg-surface-container-lowest shadow-sm">
+                  <IconTrendingUp size={36} className="text-on-surface-variant/50 mx-auto mb-2" />
+                  <p className="font-title-sm font-semibold text-on-surface">No strength records calculated yet</p>
+                  <p className="font-body-sm text-on-surface-variant mt-1">
                     Log workout exercises with weight and reps to automatically compute PRs and estimated 1RMs.
                   </p>
                 </div>
               ) : (
-                <div className="bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner overflow-hidden shadow-xs">
+                <div className="bg-surface-container-lowest border border-border/70 rounded-2xl overflow-hidden shadow-sm">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-muted/50 text-muted-foreground border-b border-border/80 text-[11px] uppercase font-mono font-semibold">
+                    <thead className="bg-surface-container-low text-on-surface-variant border-b border-border/70 text-[11px] uppercase font-mono font-semibold">
                       <tr>
                         <th className="p-3.5">Exercise Name</th>
                         <th className="p-3.5">Max Weight</th>
@@ -1165,14 +1189,14 @@ export function TrackersView() {
                     </thead>
                     <tbody className="divide-y divide-border/60">
                       {fitnessStats.personalRecords.map((pr) => (
-                        <tr key={pr.exerciseName} className="hover:bg-muted/30 transition-colors">
-                          <td className="p-3.5 font-bold text-foreground">{pr.exerciseName}</td>
+                        <tr key={pr.exerciseName} className="hover:bg-surface-container-low/50 transition-colors">
+                          <td className="p-3.5 font-bold text-on-surface">{pr.exerciseName}</td>
                           <td className="p-3.5 font-mono">{(pr.maxWeightGrams / 1000).toFixed(1)} kg</td>
-                          <td className="p-3.5">{pr.maxReps}</td>
+                          <td className="p-3.5 font-mono">{pr.maxReps}</td>
                           <td className="p-3.5 font-extrabold text-primary font-mono">
                             {(pr.estimatedOneRepMaxGrams / 1000).toFixed(1)} kg
                           </td>
-                          <td className="p-3.5 text-xs text-muted-foreground">{pr.achievedAtDate}</td>
+                          <td className="p-3.5 text-xs text-on-surface-variant font-mono">{pr.achievedAtDate}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1187,28 +1211,28 @@ export function TrackersView() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-base text-foreground">Body Measurements & 7-Day Weight MA</h3>
-                  <p className="text-xs text-muted-foreground">
+                  <h3 className="font-headline-md font-bold text-on-surface">Body Measurements & 7-Day Weight MA</h3>
+                  <p className="font-body-sm text-on-surface-variant">
                     Smooth out day-to-day water weight fluctuations with moving averages.
                   </p>
                 </div>
-                <Button onClick={() => setIsMeasurementModalOpen(true)} variant="primary" size="sm" className="cursor-pointer text-xs">
+                <Button onClick={() => setIsMeasurementModalOpen(true)} variant="primary" size="sm" className="cursor-pointer text-xs rounded-xl shadow-xs">
                   <IconPlus size={14} className="mr-1" /> Log Measurement
                 </Button>
               </div>
 
               {measurements.length === 0 ? (
-                <div className="p-8 text-center border border-dashed border-border/80 rounded-2xl bg-card/40 glass-inner">
-                  <IconActivity size={36} className="text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-foreground">No body measurements recorded</p>
-                  <Button onClick={() => setIsMeasurementModalOpen(true)} variant="primary" size="sm" className="mt-3 cursor-pointer">
+                <div className="p-8 text-center border border-dashed border-border/70 rounded-2xl bg-surface-container-lowest shadow-sm">
+                  <IconActivity size={36} className="text-on-surface-variant/50 mx-auto mb-2" />
+                  <p className="font-title-sm font-semibold text-on-surface">No body measurements recorded</p>
+                  <Button onClick={() => setIsMeasurementModalOpen(true)} variant="primary" size="sm" className="mt-3 cursor-pointer rounded-xl shadow-xs">
                     <IconPlus size={14} className="mr-1" /> Log First Check
                   </Button>
                 </div>
               ) : (
-                <div className="bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner overflow-hidden shadow-xs">
+                <div className="bg-surface-container-lowest border border-border/70 rounded-2xl overflow-hidden shadow-sm">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-muted/50 text-muted-foreground border-b border-border/80 text-[11px] uppercase font-mono font-semibold">
+                    <thead className="bg-surface-container-low text-on-surface-variant border-b border-border/70 text-[11px] uppercase font-mono font-semibold">
                       <tr>
                         <th className="p-3.5">Date</th>
                         <th className="p-3.5">Body Weight</th>
@@ -1220,9 +1244,9 @@ export function TrackersView() {
                     </thead>
                     <tbody className="divide-y divide-border/60">
                       {measurements.map((m) => (
-                        <tr key={m.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="p-3.5 font-semibold">{m.date}</td>
-                          <td className="p-3.5 font-bold text-foreground font-mono">
+                        <tr key={m.id} className="hover:bg-surface-container-low/50 transition-colors">
+                          <td className="p-3.5 font-semibold text-on-surface font-mono">{m.date}</td>
+                          <td className="p-3.5 font-bold text-on-surface font-mono">
                             {m.weightGrams ? `${(m.weightGrams / 1000).toFixed(2)} kg` : '—'}
                           </td>
                           <td className="p-3.5 font-mono">
@@ -1234,7 +1258,7 @@ export function TrackersView() {
                           <td className="p-3.5 font-mono">
                             {m.chestMm ? `${(m.chestMm / 10).toFixed(1)} cm` : '—'}
                           </td>
-                          <td className="p-3.5 text-xs text-muted-foreground">{m.notes || '—'}</td>
+                          <td className="p-3.5 text-xs text-on-surface-variant">{m.notes || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1251,69 +1275,49 @@ export function TrackersView() {
       {/* ==================================================================== */}
       {activeTab === 'insights' && insights && (
         <div className="space-y-6">
-          {/* Top KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card3D depth={18} glare={true} className="p-5 bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner shadow-xs hover:shadow-md transition-shadow">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block font-mono">
-                Task Velocity (30d)
-              </span>
-              <span className="text-2xl font-black text-foreground mt-1 block">
-                {insights.tasks.completedPast30d} Done
-              </span>
-              <span className="text-xs text-emerald-500 font-semibold mt-0.5 block">
-                {insights.tasks.completedPast7d} in past 7 days
-              </span>
-            </Card3D>
+          {/* Top KPI Cards (4-Column Bento Grid) */}
+          <KpiGrid cols="4">
+            <KpiCard
+              title="Task Velocity (30d)"
+              value={`${insights.tasks.completedPast30d} Done`}
+              subtitle={`${insights.tasks.completedPast7d} in past 7 days`}
+              color="emerald"
+            />
 
-            <Card3D depth={18} glare={true} className="p-5 bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner shadow-xs hover:shadow-md transition-shadow">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block font-mono">
-                Habit Consistency
-              </span>
-              <span className="text-2xl font-black text-primary mt-1 block">
-                {insights.trackers.overallConsistencyRate30d}%
-              </span>
-              <span className="text-xs text-muted-foreground font-semibold mt-0.5 block truncate">
-                Top: {insights.trackers.topHabitName} ({insights.trackers.longestActiveStreakDays}d)
-              </span>
-            </Card3D>
+            <KpiCard
+              title="Habit Consistency"
+              value={`${insights.trackers.overallConsistencyRate30d}%`}
+              subtitle={`Top: ${insights.trackers.topHabitName} (${insights.trackers.longestActiveStreakDays}d)`}
+              color="primary"
+            />
 
-            <Card3D depth={18} glare={true} className="p-5 bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner shadow-xs hover:shadow-md transition-shadow">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block font-mono">
-                Monthly Tonnage
-              </span>
-              <span className="text-2xl font-black text-foreground mt-1 block">
-                {Math.round(insights.fitness.tonnagePast30dGrams / 1000).toLocaleString()} kg
-              </span>
-              <span className="text-xs text-muted-foreground font-semibold mt-0.5 block">
-                Across {insights.fitness.workoutsPast30d} sessions
-              </span>
-            </Card3D>
+            <KpiCard
+              title="Monthly Tonnage"
+              value={`${Math.round(insights.fitness.tonnagePast30dGrams / 1000).toLocaleString()} kg`}
+              subtitle={`Across ${insights.fitness.workoutsPast30d} sessions`}
+              color="cyan"
+            />
 
-            <Card3D depth={18} glare={true} className="p-5 bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner shadow-xs hover:shadow-md transition-shadow">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block font-mono">
-                Active Goals On-Track
-              </span>
-              <span className="text-2xl font-black text-emerald-500 mt-1 block">
-                {insights.goals.onTrackCount}
-              </span>
-              <span className="text-xs text-muted-foreground font-semibold mt-0.5 block">
-                Avg Progress: {insights.goals.averageProgress}%
-              </span>
-            </Card3D>
-          </div>
+            <KpiCard
+              title="Goals On-Track"
+              value={insights.goals.onTrackCount}
+              subtitle={`Avg Progress: ${insights.goals.averageProgress}%`}
+              color="emerald"
+            />
+          </KpiGrid>
 
-          {/* 365-Day Unified Activity Heatmap */}
-          <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl glass-inner shadow-xs space-y-4">
+          {/* 365-Day Unified Activity Heatmap Bento Card */}
+          <div className="p-6 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h3 className="font-bold text-base text-foreground">365-Day Unified Life Heatmap</h3>
-                <p className="text-xs text-muted-foreground">
+                <h3 className="font-headline-md font-bold text-on-surface">365-Day Unified Life Heatmap</h3>
+                <p className="font-body-sm text-on-surface-variant">
                   Comprehensive daily density of completed tasks, habits, and workouts.
                 </p>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+              <div className="flex items-center gap-1.5 text-xs text-on-surface-variant font-mono">
                 <span>Less</span>
-                <span className="w-3 h-3 rounded-xs bg-muted inline-block" />
+                <span className="w-3 h-3 rounded-xs bg-surface-container-low border border-border/50 inline-block" />
                 <span className="w-3 h-3 rounded-xs bg-emerald-500/30 inline-block" />
                 <span className="w-3 h-3 rounded-xs bg-emerald-500/60 inline-block" />
                 <span className="w-3 h-3 rounded-xs bg-emerald-500 inline-block" />
@@ -1325,7 +1329,7 @@ export function TrackersView() {
               <div className="flex flex-wrap gap-1.5 max-w-full">
                 {insights.heatmap365.slice(-180).map((day) => {
                   const score = day.activityScore;
-                  let bgClass = 'bg-muted/40';
+                  let bgClass = 'bg-surface-container-low border border-border/40';
                   if (score > 75) bgClass = 'bg-emerald-500 shadow-xs';
                   else if (score > 40) bgClass = 'bg-emerald-500/70';
                   else if (score > 0) bgClass = 'bg-emerald-500/30';
@@ -1401,7 +1405,7 @@ export function TrackersView() {
             <Button onClick={() => setIsGoalModalOpen(false)} variant="ghost" type="button" className="flex-1 sm:flex-initial">
               Cancel
             </Button>
-            <Button variant="primary" type="submit" loading={submitting} className="flex-1 sm:flex-initial">
+            <Button variant="primary" type="submit" isLoading={submitting} className="flex-1 sm:flex-initial">
               Save Goal
             </Button>
           </div>
@@ -1447,7 +1451,7 @@ export function TrackersView() {
             <Button onClick={() => setIsMilestoneModalOpen(false)} variant="ghost" type="button" className="flex-1 sm:flex-initial">
               Cancel
             </Button>
-            <Button variant="primary" type="submit" loading={submitting} className="flex-1 sm:flex-initial">
+            <Button variant="primary" type="submit" isLoading={submitting} className="flex-1 sm:flex-initial">
               Add Milestone
             </Button>
           </div>
@@ -1482,7 +1486,7 @@ export function TrackersView() {
                         {m.title}
                       </span>
                     </div>
-                    <Badge variant={m.isCompleted ? 'success' : 'secondary'}>
+                    <Badge variant={m.isCompleted ? 'success' : 'default'}>
                       {m.currentValue} / {m.targetValue} {m.unit}
                     </Badge>
                   </div>
@@ -1513,7 +1517,7 @@ export function TrackersView() {
               placeholder="What milestone or adjustment was completed?"
             />
 
-            <Button variant="primary" type="submit" loading={submitting} className="w-full mt-2">
+            <Button variant="primary" type="submit" isLoading={submitting} className="w-full mt-2">
               Log Progress
             </Button>
           </form>
@@ -1554,7 +1558,7 @@ export function TrackersView() {
             <Button onClick={() => setIsLinkTaskModalOpen(false)} variant="ghost" type="button" className="flex-1 sm:flex-initial">
               Cancel
             </Button>
-            <Button variant="primary" type="submit" loading={submitting} className="flex-1 sm:flex-initial">
+            <Button variant="primary" type="submit" isLoading={submitting} className="flex-1 sm:flex-initial">
               Link Task
             </Button>
           </div>
@@ -1607,7 +1611,7 @@ export function TrackersView() {
             <Button onClick={() => setIsHabitModalOpen(false)} variant="ghost" type="button" className="flex-1 sm:flex-initial">
               Cancel
             </Button>
-            <Button variant="primary" type="submit" loading={submitting} className="flex-1 sm:flex-initial">
+            <Button variant="primary" type="submit" isLoading={submitting} className="flex-1 sm:flex-initial">
               Save Habit
             </Button>
           </div>
@@ -1658,7 +1662,7 @@ export function TrackersView() {
             <Button onClick={() => setIsTrackerModalOpen(false)} variant="ghost" type="button" className="flex-1 sm:flex-initial">
               Cancel
             </Button>
-            <Button variant="primary" type="submit" loading={submitting} className="flex-1 sm:flex-initial">
+            <Button variant="primary" type="submit" isLoading={submitting} className="flex-1 sm:flex-initial">
               Create Metric
             </Button>
           </div>
@@ -1709,7 +1713,7 @@ export function TrackersView() {
             <Button onClick={() => setIsLogTrackerModalOpen(false)} variant="ghost" type="button" className="flex-1 sm:flex-initial">
               Cancel
             </Button>
-            <Button variant="primary" type="submit" loading={submitting} className="flex-1 sm:flex-initial">
+            <Button variant="primary" type="submit" isLoading={submitting} className="flex-1 sm:flex-initial">
               Save Entry
             </Button>
           </div>
@@ -1838,7 +1842,7 @@ export function TrackersView() {
             <Button onClick={() => setIsWorkoutModalOpen(false)} variant="ghost" type="button" className="flex-1 sm:flex-initial">
               Cancel
             </Button>
-            <Button variant="primary" type="submit" loading={submitting} className="flex-1 sm:flex-initial">
+            <Button variant="primary" type="submit" isLoading={submitting} className="flex-1 sm:flex-initial">
               Save Workout
             </Button>
           </div>
@@ -1885,7 +1889,7 @@ export function TrackersView() {
             <Button onClick={() => setIsTemplateModalOpen(false)} variant="ghost" type="button" className="flex-1 sm:flex-initial">
               Cancel
             </Button>
-            <Button variant="primary" type="submit" loading={submitting} className="flex-1 sm:flex-initial">
+            <Button variant="primary" type="submit" isLoading={submitting} className="flex-1 sm:flex-initial">
               Save Template
             </Button>
           </div>
@@ -1945,7 +1949,7 @@ export function TrackersView() {
             <Button onClick={() => setIsMeasurementModalOpen(false)} variant="ghost" type="button" className="flex-1 sm:flex-initial">
               Cancel
             </Button>
-            <Button variant="primary" type="submit" loading={submitting} className="flex-1 sm:flex-initial">
+            <Button variant="primary" type="submit" isLoading={submitting} className="flex-1 sm:flex-initial">
               Save Measurement
             </Button>
           </div>

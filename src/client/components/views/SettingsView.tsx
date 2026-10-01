@@ -3,6 +3,7 @@ import { useThemeStore } from '../../stores/themeStore';
 import { useToast } from '../ui/Toast';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { KpiCard, KpiGrid } from '../ui/KpiCard';
 import type { AccentColor, Density, FontSize, BorderRadius, ReducedMotion, ThemeMode, ApiResponse } from '../../../shared/types';
 import { safeParseJson } from '../../lib/api';
 
@@ -123,34 +124,69 @@ export function SettingsView() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
-      <div>
-        <h2 className="text-xl font-bold tracking-tight text-foreground">Global Preferences & Settings</h2>
-        <p className="text-xs text-foreground/60 mt-0.5">
-          Customize design tokens, typography scale, information density, and security credentials.
-        </p>
+    <div className="space-y-6 max-w-7xl mx-auto pb-12 animate-fade-up">
+      {/* Top Header Cockpit Bento */}
+      <div className="bg-surface-container-lowest p-5 sm:p-6 rounded-2xl border border-border/70 shadow-sm">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="font-headline-lg text-2xl sm:text-3xl font-bold tracking-tight text-on-surface">
+              Preferences & Settings
+            </h1>
+            <span className="font-label-caps text-xs px-2.5 py-0.5 rounded-full bg-secondary-container/40 text-secondary font-mono font-semibold">
+              {baseCurrency} • {themeMode.toUpperCase()}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Theme Mode & Accents */}
-      <section className="bg-card/70 backdrop-blur-sm text-card-foreground border border-border/80 rounded-2xl p-4 sm:p-6 space-y-6 glass-inner shadow-xs">
+      {/* 4-Column Cockpit Bento Telemetry Ribbon */}
+      <KpiGrid cols="4">
+        <KpiCard
+          title="Edge Runtime"
+          value="Cloudflare"
+          subtitle="Workers + Hono Engine"
+          color="primary"
+        />
+        <KpiCard
+          title="Primary Database"
+          value="D1 SQLite"
+          subtitle="Atomic Ledger Cluster"
+          color="emerald"
+        />
+        <KpiCard
+          title="Active Style"
+          value={`${themeMode.toUpperCase()}`}
+          subtitle={`${accentColor.toUpperCase()} Accent · ${borderRadius} R`}
+          color="cyan"
+        />
+        <KpiCard
+          title="Base Currency"
+          value={baseCurrency || 'INR'}
+          subtitle="Minor integer units strict"
+          color="default"
+        />
+      </KpiGrid>
+
+      {/* Theme Mode & Accents Bento Card */}
+      <section className="bg-surface-container-lowest border border-border/70 rounded-2xl p-5 sm:p-6 space-y-6 shadow-sm">
         <div>
-          <h3 className="text-sm font-bold text-foreground">Theme & Appearance</h3>
-          <p className="text-xs text-foreground/60 mt-0.5">Select your color scheme and global accent tone.</p>
+          <h2 className="font-headline-md font-bold text-on-surface">Theme & Appearance</h2>
+          <p className="font-body-sm text-on-surface-variant mt-0.5">Select your color scheme and global accent tone.</p>
         </div>
 
         <div className="space-y-5">
           <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-2">Color Scheme</label>
+            <label className="block font-label-caps text-on-surface-variant mb-2">Color Scheme</label>
             <div className="grid grid-cols-3 gap-2.5 max-w-sm">
               {(['system', 'light', 'dark'] as ThemeMode[]).map((mode) => (
                 <button
                   key={mode}
                   type="button"
                   onClick={() => handleThemeChange(mode)}
-                  className={`min-h-[44px] sm:min-h-[38px] px-3 py-2 text-xs font-semibold rounded-xl border capitalize transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
+                  className={`min-h-[42px] px-3.5 py-2 text-xs font-semibold rounded-xl border capitalize transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
                     themeMode === mode
-                      ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/20 shadow-xs'
-                      : 'border-border/80 text-foreground/80 hover:bg-muted/50'
+                      ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/20 shadow-xs font-bold'
+                      : 'border-border/70 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
                   }`}
                 >
                   {mode === 'system' ? 'System' : mode === 'light' ? 'Light' : 'Dark'}
@@ -160,17 +196,17 @@ export function SettingsView() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-2">Global Accent Color</label>
+            <label className="block font-label-caps text-on-surface-variant mb-2">Global Accent Color</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 max-w-lg">
               {ACCENTS.map((acc) => (
                 <button
                   key={acc.id}
                   type="button"
                   onClick={() => handleAccentChange(acc.id)}
-                  className={`min-h-[44px] sm:min-h-[38px] flex items-center justify-center sm:justify-start gap-2 p-2 rounded-xl border text-xs font-medium transition-all cursor-pointer touch-manipulation ${
+                  className={`min-h-[42px] flex items-center justify-center sm:justify-start gap-2 p-2.5 rounded-xl border text-xs font-medium transition-all cursor-pointer touch-manipulation ${
                     accentColor === acc.id
-                      ? 'border-primary ring-2 ring-primary/30 font-bold bg-primary/10 shadow-xs'
-                      : 'border-border/80 hover:bg-muted/50'
+                      ? 'border-primary ring-2 ring-primary/30 font-bold bg-primary/10 shadow-xs text-primary'
+                      : 'border-border/70 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
                   }`}
                 >
                   <span className={`w-3.5 h-3.5 rounded-full ${acc.colorClass} shadow-xs shrink-0`} />
@@ -182,26 +218,26 @@ export function SettingsView() {
         </div>
       </section>
 
-      {/* Density, Typography & Radius */}
-      <section className="bg-card/70 backdrop-blur-sm text-card-foreground border border-border/80 rounded-2xl p-4 sm:p-6 space-y-6 glass-inner shadow-xs">
+      {/* Density, Typography & Radius Bento Card */}
+      <section className="bg-surface-container-lowest border border-border/70 rounded-2xl p-5 sm:p-6 space-y-6 shadow-sm">
         <div>
-          <h3 className="text-sm font-bold text-foreground">Layout & Design Tokens</h3>
-          <p className="text-xs text-foreground/60 mt-0.5">Control layout compactness, corner rounding, and accessibility.</p>
+          <h2 className="font-headline-md font-bold text-on-surface">Layout & Design Tokens</h2>
+          <p className="font-body-sm text-on-surface-variant mt-0.5">Control layout compactness, corner rounding, and accessibility.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-2">Information Density</label>
+            <label className="block font-label-caps text-on-surface-variant mb-2">Information Density</label>
             <div className="flex gap-2">
               {(['compact', 'comfortable', 'spacious'] as Density[]).map((d) => (
                 <button
                   key={d}
                   type="button"
                   onClick={() => handleDensityChange(d)}
-                  className={`flex-1 min-h-[44px] sm:min-h-[38px] py-2 px-2 sm:px-3 text-xs font-semibold rounded-xl border capitalize transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
+                  className={`flex-1 min-h-[42px] py-2 px-3 text-xs font-semibold rounded-xl border capitalize transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
                     density === d
                       ? 'border-primary bg-primary/10 text-primary font-bold shadow-xs ring-1 ring-primary/30'
-                      : 'border-border/80 hover:bg-muted/50 text-foreground/80'
+                      : 'border-border/70 hover:bg-surface-container-low text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
                   {d}
@@ -211,17 +247,17 @@ export function SettingsView() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-2">Font Size Scaling</label>
+            <label className="block font-label-caps text-on-surface-variant mb-2">Font Size Scaling</label>
             <div className="flex gap-2">
               {(['small', 'normal', 'large'] as FontSize[]).map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => handleFontChange(s)}
-                  className={`flex-1 min-h-[44px] sm:min-h-[38px] py-2 px-2 sm:px-3 text-xs font-semibold rounded-xl border capitalize transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
+                  className={`flex-1 min-h-[42px] py-2 px-3 text-xs font-semibold rounded-xl border capitalize transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
                     fontSize === s
                       ? 'border-primary bg-primary/10 text-primary font-bold shadow-xs ring-1 ring-primary/30'
-                      : 'border-border/80 hover:bg-muted/50 text-foreground/80'
+                      : 'border-border/70 hover:bg-surface-container-low text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
                   {s}
@@ -231,19 +267,19 @@ export function SettingsView() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-2">Border Radius</label>
+            <label className="block font-label-caps text-on-surface-variant mb-2">Border Radius</label>
             <div className="grid grid-cols-4 gap-2">
               {(['none', 'small', 'medium', 'large'] as BorderRadius[]).map((r) => (
                 <button
                   key={r}
                   type="button"
                   onClick={() => handleRadiusChange(r)}
-                  className={`min-h-[44px] sm:min-h-[38px] py-2 px-2 text-xs font-semibold border capitalize transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
+                  className={`min-h-[42px] py-2 px-2 text-xs font-semibold border capitalize transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
                     r === 'none' ? 'rounded-none' : r === 'small' ? 'rounded-md' : r === 'medium' ? 'rounded-xl' : 'rounded-2xl'
                   } ${
                     borderRadius === r
                       ? 'border-primary bg-primary/10 text-primary font-bold shadow-xs ring-1 ring-primary/30'
-                      : 'border-border/80 hover:bg-muted/50 text-foreground/80'
+                      : 'border-border/70 hover:bg-surface-container-low text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
                   {r}
@@ -253,17 +289,17 @@ export function SettingsView() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-2">Reduced Motion</label>
+            <label className="block font-label-caps text-on-surface-variant mb-2">Reduced Motion</label>
             <div className="flex gap-2">
               {(['system', 'reduce', 'no-preference'] as ReducedMotion[]).map((m) => (
                 <button
                   key={m}
                   type="button"
                   onClick={() => handleMotionChange(m)}
-                  className={`flex-1 min-h-[44px] sm:min-h-[38px] py-2 px-2 text-xs font-semibold rounded-xl border capitalize transition-all cursor-pointer touch-manipulation flex items-center justify-center text-center ${
+                  className={`flex-1 min-h-[42px] py-2 px-2 text-xs font-semibold rounded-xl border capitalize transition-all cursor-pointer touch-manipulation flex items-center justify-center text-center ${
                     reducedMotion === m
                       ? 'border-primary bg-primary/10 text-primary font-bold shadow-xs ring-1 ring-primary/30'
-                      : 'border-border/80 hover:bg-muted/50 text-foreground/80'
+                      : 'border-border/70 hover:bg-surface-container-low text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
                   {m === 'reduce' ? 'Reduced' : m === 'system' ? 'System' : 'Standard'}
@@ -274,15 +310,15 @@ export function SettingsView() {
         </div>
       </section>
 
-      {/* Currency & Financial Preferences */}
-      <section className="bg-card/70 backdrop-blur-sm text-card-foreground border border-border/80 rounded-2xl p-4 sm:p-6 space-y-6 glass-inner shadow-xs">
+      {/* Currency & Financial Preferences Bento Card */}
+      <section className="bg-surface-container-lowest border border-border/70 rounded-2xl p-5 sm:p-6 space-y-6 shadow-sm">
         <div>
-          <h3 className="text-sm font-bold text-foreground">Currency & Localization</h3>
-          <p className="text-xs text-foreground/60 mt-0.5">Select your primary display currency for financial accounts, budgets, and investments.</p>
+          <h2 className="font-headline-md font-bold text-on-surface">Currency & Localization</h2>
+          <p className="font-body-sm text-on-surface-variant mt-0.5">Select your primary display currency for financial accounts, budgets, and investments.</p>
         </div>
 
         <div className="max-w-md">
-          <label className="block text-xs font-semibold text-foreground/80 mb-2">Base Currency</label>
+          <label className="block font-label-caps text-on-surface-variant mb-2">Base Currency</label>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
             {[
               { code: 'INR', label: 'INR (₹)' },
@@ -296,10 +332,10 @@ export function SettingsView() {
                 key={c.code}
                 type="button"
                 onClick={() => handleCurrencyChange(c.code)}
-                className={`min-h-[44px] sm:min-h-[38px] px-3 py-2 text-xs font-semibold rounded-xl border font-mono transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
+                className={`min-h-[42px] px-3 py-2 text-xs font-semibold rounded-xl border font-mono transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
                   (baseCurrency || 'INR') === c.code
                     ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/20 shadow-xs font-bold'
-                    : 'border-border/80 text-foreground/80 hover:bg-muted/50'
+                    : 'border-border/70 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
                 }`}
               >
                 {c.label}
@@ -309,15 +345,15 @@ export function SettingsView() {
         </div>
       </section>
 
-      {/* Password Change */}
-      <section className="bg-card/70 backdrop-blur-sm text-card-foreground border border-border/80 rounded-2xl p-4 sm:p-6 space-y-4 max-w-xl glass-inner shadow-xs">
+      {/* Password Change Bento Card */}
+      <section className="bg-surface-container-lowest border border-border/70 rounded-2xl p-5 sm:p-6 space-y-4 max-w-xl shadow-sm">
         <div>
-          <h3 className="text-sm font-bold text-foreground">Security & Password</h3>
-          <p className="text-xs text-foreground/60 mt-0.5">Update your account authentication credentials.</p>
+          <h2 className="font-headline-md font-bold text-on-surface">Security & Password</h2>
+          <p className="font-body-sm text-on-surface-variant mt-0.5">Update your account authentication credentials.</p>
         </div>
 
         {passwordError && (
-          <div role="alert" className="p-3 text-xs rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400">
+          <div role="alert" className="p-3 text-xs rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 font-medium">
             {passwordError}
           </div>
         )}
@@ -340,7 +376,7 @@ export function SettingsView() {
             onChange={(e) => setNewPassword(e.target.value)}
           />
 
-          <Button type="submit" isLoading={isUpdatingPassword} size="sm" className="w-full sm:w-auto min-h-[44px] sm:min-h-[36px] justify-center">
+          <Button type="submit" isLoading={isUpdatingPassword} size="sm" className="w-full sm:w-auto min-h-[40px] px-5 rounded-xl shadow-xs justify-center">
             Update Password
           </Button>
         </form>

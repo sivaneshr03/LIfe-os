@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './lib/queryClient';
 import { useAuthStore } from './stores/authStore';
 import { useThemeStore } from './stores/themeStore';
 import { ToastProvider, useToast } from './components/ui/Toast';
@@ -10,10 +12,14 @@ import { SettingsView } from './components/views/SettingsView';
 import { AdminView } from './components/views/AdminView';
 import { TasksView } from './components/views/TasksView';
 import { FinanceView } from './components/views/FinanceView';
+import { LendingView } from './components/views/LendingView';
 import { InvestmentsView } from './components/views/InvestmentsView';
 import { NotesView } from './components/views/NotesView';
 import { TrackersView } from './components/views/TrackersView';
+import { CulinaryView } from './components/views/CulinaryView';
+import { LocalRecordsView } from './components/views/LocalRecordsView';
 import { CommandPalette } from './components/ui/CommandPalette';
+import { LocalDevBar } from './components/ui/LocalDevBar';
 import { IconAlertTriangle } from './components/ui/Icons';
 
 function AppContent() {
@@ -30,6 +36,18 @@ function AppContent() {
     applyToDom();
     checkAuth();
   }, [applyToDom, checkAuth]);
+
+  // Global view navigation listener (e.g. from floating dev bar or notification cues)
+  useEffect(() => {
+    const handleNavEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setCurrentView(customEvent.detail);
+      }
+    };
+    window.addEventListener('lifeos:navigate', handleNavEvent);
+    return () => window.removeEventListener('lifeos:navigate', handleNavEvent);
+  }, []);
 
   // Online / Offline network listeners
   useEffect(() => {
@@ -89,14 +107,20 @@ function AppContent() {
         return <TasksView />;
       case 'finance':
         return <FinanceView />;
+      case 'lending':
+        return <LendingView onNavigate={setCurrentView} />;
       case 'investments':
         return <InvestmentsView />;
       case 'notes':
         return <NotesView />;
       case 'trackers':
         return <TrackersView />;
+      case 'culinary':
+        return <CulinaryView onNavigate={setCurrentView} />;
       case 'settings':
         return <SettingsView />;
+      case 'records':
+        return <LocalRecordsView />;
       case 'admin':
         return <AdminView onNavigate={setCurrentView} />;
       default:
@@ -128,8 +152,11 @@ function AppContent() {
 
 export function App() {
   return (
-    <ToastProvider>
-      <AppContent />
-    </ToastProvider>
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>
+        <AppContent />
+        <LocalDevBar />
+      </ToastProvider>
+    </QueryClientProvider>
   );
 }

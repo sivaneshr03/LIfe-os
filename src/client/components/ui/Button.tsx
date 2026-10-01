@@ -8,16 +8,19 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   isLoading?: boolean;
 }
 
-export function Button({
-  children,
-  className,
-  variant = 'primary',
-  size = 'md',
-  isLoading = false,
-  disabled,
-  type = 'button',
-  ...props
-}: ButtonProps) {
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    children,
+    className,
+    variant = 'primary',
+    size = 'md',
+    isLoading = false,
+    disabled,
+    type = 'button',
+    ...props
+  },
+  ref
+) {
   const baseStyles = [
     'relative inline-flex items-center justify-center font-medium select-none touch-manipulation',
     'rounded-token transition-all duration-150 ease-out',
@@ -29,17 +32,17 @@ export function Button({
 
   const variants = {
     primary:
-      'bg-primary text-primary-foreground shadow-sm shadow-primary/20 hover:brightness-105 active:brightness-95 border border-primary/20',
+      'bg-primary text-primary-foreground shadow-xs hover:brightness-105 active:brightness-95 border border-primary/20',
     secondary:
-      'bg-muted/80 text-foreground hover:bg-muted active:bg-muted/90 border border-border/50',
+      'bg-surface-container-low text-on-surface hover:bg-surface-container border border-border/70',
     outline:
-      'border border-border bg-card/50 text-foreground hover:bg-muted/60 hover:border-border/80 active:bg-muted',
+      'border border-border/70 bg-surface-container-lowest text-on-surface hover:bg-surface-container-low hover:border-border active:bg-surface-container shadow-xs',
     ghost:
-      'text-foreground/80 hover:text-foreground hover:bg-muted/60 active:bg-muted',
+      'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low active:bg-surface-container',
     destructive:
-      'bg-red-600 text-white shadow-sm shadow-red-600/20 hover:bg-red-500 active:bg-red-700 border border-red-500/20 focus-visible:ring-red-500',
+      'bg-red-600 text-white shadow-xs hover:bg-red-500 active:bg-red-700 border border-red-500/20 focus-visible:ring-red-500',
     glass:
-      'glass text-foreground hover:bg-card/80 active:bg-card/60 shadow-xs',
+      'bg-surface-container-lowest/80 backdrop-blur-md text-on-surface hover:bg-surface-container-lowest active:bg-surface-container-low border border-border/70 shadow-xs',
   };
 
   const sizes = {
@@ -51,6 +54,7 @@ export function Button({
 
   return (
     <button
+      ref={ref}
       type={type}
       className={twMerge(clsx(baseStyles, variants[variant], sizes[size], className))}
       disabled={disabled || isLoading}
@@ -65,4 +69,6 @@ export function Button({
       {children}
     </button>
   );
-}
+});
+
+Button.displayName = 'Button';

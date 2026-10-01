@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { CategoryData, CategoryDomain } from '../../shared/platformTypes';
+import type { CategoryData, CategoryDomain } from '../../../shared/types';
 import {
   IconSearch,
   IconX,

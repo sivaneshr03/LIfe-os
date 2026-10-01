@@ -29,25 +29,48 @@ body {
 
 @layer base {
   :root {
-    /* ─── Color Palette: Light (Soft Structuralism) ─── */
-    --color-bg:      252 252 253;
-    --color-fg:      17 24 39;
-    --color-card:    255 255 255;
-    --color-card-fg: 17 24 39;
-    --color-border:  233 236 242;
-    --color-muted:   245 247 250;
-    --color-muted-fg: 107 114 128;
+    /* ─── Color Palette: Light (Cockpit Bento Minimal) ─── */
+    --color-bg:                  250 248 255; /* #faf8ff */
+    --color-fg:                  19 27 46;    /* #131b2e */
+    --color-card:                255 255 255;
+    --color-card-fg:             19 27 46;
+    --color-border:              226 231 245;
+    --color-muted:               242 243 255; /* #f2f3ff */
+    --color-muted-fg:            70 69 84;    /* #464554 */
 
-    /* Default Accent: Emerald */
-    --color-primary: 16 185 129;
-    --color-primary-fg: 255 255 255;
+    /* Stitch Bento Surfaces */
+    --color-surface:             250 248 255;
+    --color-surface-lowest:      255 255 255;
+    --color-surface-low:         242 243 255;
+    --color-surface-container:   234 237 255;
+    --color-surface-high:        226 231 255;
+    --color-surface-highest:     218 226 253;
+    --color-on-surface:          19 27 46;
+    --color-on-surface-variant:  70 69 84;
+
+    /* Cockpit Accents */
+    --color-primary:             70 72 212;   /* #4648d4 */
+    --color-primary-fg:          255 255 255;
+    --color-primary-container:   96 99 238;   /* #6063ee */
+    --color-on-primary-container: 255 251 255;
+    --color-primary-fixed:       225 224 255; /* #e1e0ff */
+    --color-on-primary-fixed:    7 0 108;     /* #07006c */
+
+    --color-secondary:           0 108 73;    /* #006c49 / emerald */
+    --color-secondary-container: 108 248 187; /* #6cf8bb */
+
+    --color-tertiary:            0 98 141;    /* #00628d / cyan */
+    --color-tertiary-container:  0 124 177;   /* #007cb1 */
+
+    --color-outline:             118 117 134; /* #767586 */
+    --color-outline-variant:     199 196 215; /* #c7c4d7 */
 
     /* ─── Radius ─── */
-    --radius: 0.625rem;
+    --radius: 0.75rem;
 
     /* ─── Typography ─── */
     --text-base: 1rem;
-    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-sans: 'Geist', 'Inter', system-ui, -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
 
     /* ─── Density ─── */
@@ -130,22 +153,49 @@ body {
   [data-font-size="normal"] { font-size: 16px; }
   [data-font-size="large"]  { font-size: 18px; }
 
-  /* ─── Dark Theme (Ethereal Glass / OLED) ─── */
+  /* ─── Dark Theme (Cockpit Bento OLED / Space Cadence) ─── */
   .dark {
-    --color-bg:      9 9 11;
-    --color-fg:      250 250 250;
-    --color-card:    24 24 27;
-    --color-card-fg: 250 250 250;
-    --color-border:  39 39 42;
-    --color-muted:   39 39 42;
-    --color-muted-fg: 161 161 170;
+    --color-bg:                  11 15 25;    /* #0b0f19 */
+    --color-fg:                  248 250 252; /* #f8fafc */
+    --color-card:                17 24 39;    /* #111827 */
+    --color-card-fg:             248 250 252;
+    --color-border:              30 41 59;
+    --color-muted:               22 32 53;
+    --color-muted-fg:            148 163 184;
 
-    --shadow-xs:    0 1px 2px 0 rgb(0 0 0 / 0.15);
-    --shadow-sm:    0 1px 3px 0 rgb(0 0 0 / 0.2), 0 1px 2px -1px rgb(0 0 0 / 0.15);
-    --shadow-md:    0 4px 6px -1px rgb(0 0 0 / 0.25), 0 2px 4px -2px rgb(0 0 0 / 0.2);
-    --shadow-lg:    0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.25);
-    --shadow-xl:    0 20px 25px -5px rgb(0 0 0 / 0.35), 0 8px 10px -6px rgb(0 0 0 / 0.3);
-    --shadow-float: 0 24px 48px -12px rgb(0 0 0 / 0.45);
+    /* Stitch Dark Bento Surfaces */
+    --color-surface:             15 20 35;
+    --color-surface-lowest:      17 24 39;
+    --color-surface-low:         22 32 53;
+    --color-surface-container:   28 40 68;
+    --color-surface-high:        35 50 86;
+    --color-surface-highest:     43 60 103;
+    --color-on-surface:          248 250 252;
+    --color-on-surface-variant:  148 163 184;
+
+    /* Cockpit Accents in Dark Mode */
+    --color-primary:             99 102 241;  /* #6366f1 */
+    --color-primary-fg:          255 255 255;
+    --color-primary-container:   79 70 229;
+    --color-on-primary-container: 255 255 255;
+    --color-primary-fixed:       49 46 129;
+    --color-on-primary-fixed:    224 231 255;
+
+    --color-secondary:           16 185 129;  /* #10b981 */
+    --color-secondary-container: 6 78 59;
+
+    --color-tertiary:            14 165 233;  /* #0ea5e9 */
+    --color-tertiary-container:  3 105 161;
+
+    --color-outline:             100 116 139; /* #64748b */
+    --color-outline-variant:     51 65 85;    /* #334155 */
+
+    --shadow-xs:    0 1px 2px 0 rgb(0 0 0 / 0.25);
+    --shadow-sm:    0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.25);
+    --shadow-md:    0 4px 6px -1px rgb(0 0 0 / 0.35), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+    --shadow-lg:    0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.35);
+    --shadow-xl:    0 20px 25px -5px rgb(0 0 0 / 0.45), 0 8px 10px -6px rgb(0 0 0 / 0.4);
+    --shadow-float: 0 24px 48px -12px rgb(0 0 0 / 0.55);
   }
 
   /* ─── Reduced Motion ─── */
@@ -253,6 +303,354 @@ body {
     padding-bottom: env(safe-area-inset-bottom, 0px);
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
+  }
+}
+
+/* ─── Neomorphic (Soft UI) Design System ─── */
+@layer components {
+  /* Extruded Neomorphic Button (Base) */
+  .neo-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+    background: linear-gradient(135deg, #ffffff 0%, #f4f6fa 100%);
+    border: 1px solid rgba(215, 224, 238, 0.7);
+    color: rgb(var(--color-fg));
+    border-radius: 0.75rem;
+    box-shadow: 3px 3px 6px rgba(160, 175, 200, 0.38), -3px -3px 6px rgba(255, 255, 255, 0.95);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .neo-btn:hover {
+    box-shadow: 4px 4px 8px rgba(150, 168, 195, 0.45), -4px -4px 8px rgba(255, 255, 255, 1);
+    transform: translateY(-0.5px);
+  }
+
+  .neo-btn:active,
+  .neo-btn[data-state="pressed"] {
+    box-shadow: inset 2px 2px 4px rgba(160, 175, 200, 0.45), inset -2px -2px 4px rgba(255, 255, 255, 0.95);
+    transform: scale(0.97) translateY(0.5px);
+  }
+
+  /* Dark mode base neo-btn */
+  .dark .neo-btn {
+    background: linear-gradient(135deg, #222228 0%, #16161b 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgb(var(--color-fg));
+    box-shadow: 3px 3px 7px rgba(0, 0, 0, 0.65), -2px -2px 6px rgba(255, 255, 255, 0.05);
+  }
+
+  .dark .neo-btn:hover {
+    box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.8), -2px -2px 6px rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+
+  .dark .neo-btn:active,
+  .dark .neo-btn[data-state="pressed"] {
+    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.9), inset -1px -1px 3px rgba(255, 255, 255, 0.05);
+  }
+
+  /* Size Variants */
+  .neo-btn-sm {
+    padding: 0.375rem 0.625rem;
+    font-size: 0.75rem;
+    border-radius: 0.625rem;
+  }
+
+  .neo-btn-icon {
+    padding: 0.375rem;
+    min-width: 2rem;
+    min-height: 2rem;
+    border-radius: 0.625rem;
+  }
+
+  /* ─── Semantic Consistency: Edit Trigger ─── */
+  .neo-btn-edit {
+    color: rgb(180 83 9);
+    background: linear-gradient(135deg, #ffffff 0%, #faf6ee 100%);
+    border-color: rgba(245, 158, 11, 0.25);
+  }
+
+  .neo-btn-edit:hover {
+    color: rgb(180 83 9);
+    border-color: rgba(245, 158, 11, 0.45);
+    box-shadow: 3px 3px 8px rgba(217, 119, 6, 0.2), -3px -3px 8px rgba(255, 255, 255, 1), 0 0 10px rgba(245, 158, 11, 0.12);
+  }
+
+  .neo-btn-edit:active,
+  .neo-btn-edit[data-state="pressed"] {
+    box-shadow: inset 2px 2px 4px rgba(217, 119, 6, 0.28), inset -2px -2px 4px rgba(255, 255, 255, 0.9);
+  }
+
+  .dark .neo-btn-edit {
+    color: rgb(251 191 36);
+    background: linear-gradient(135deg, rgba(38, 34, 28, 0.95) 0%, rgba(22, 20, 18, 0.95) 100%);
+    border-color: rgba(245, 158, 11, 0.2);
+  }
+
+  .dark .neo-btn-edit:hover {
+    color: rgb(253 230 138);
+    border-color: rgba(245, 158, 11, 0.45);
+    box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.85), -2px -2px 6px rgba(255, 255, 255, 0.07), 0 0 12px rgba(245, 158, 11, 0.24);
+  }
+
+  .dark .neo-btn-edit:active,
+  .dark .neo-btn-edit[data-state="pressed"] {
+    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.9), inset -1px -1px 3px rgba(245, 158, 11, 0.3);
+  }
+
+  /* ─── Semantic: Amber-400 Accent Neomorphic Controls ─── */
+  .neo-btn-amber {
+    color: rgb(217 119 6);
+    background: linear-gradient(135deg, #ffffff 0%, #fffdf5 100%);
+    border-color: rgba(251, 191, 36, 0.4);
+    box-shadow: 3px 3px 6px rgba(160, 175, 200, 0.35), -3px -3px 6px rgba(255, 255, 255, 0.95);
+  }
+
+  .neo-btn-amber:hover {
+    color: rgb(180 83 9);
+    border-color: rgba(251, 191, 36, 0.7);
+    box-shadow: 3px 3px 8px rgba(245, 158, 11, 0.22), -3px -3px 8px rgba(255, 255, 255, 1), 0 0 10px rgba(251, 191, 36, 0.25);
+    transform: translateY(-0.5px);
+  }
+
+  .neo-btn-amber:active,
+  .neo-btn-amber[data-state="pressed"] {
+    box-shadow: inset 2px 2px 4px rgba(217, 119, 6, 0.28), inset -2px -2px 4px rgba(255, 255, 255, 0.85);
+    transform: scale(0.97) translateY(0.5px);
+  }
+
+  .dark .neo-btn-amber {
+    color: rgb(251 191 36);
+    background: linear-gradient(135deg, rgba(38, 32, 22, 0.95) 0%, rgba(24, 20, 16, 0.95) 100%);
+    border-color: rgba(251, 191, 36, 0.3);
+    box-shadow: 3px 3px 7px rgba(0, 0, 0, 0.65), -2px -2px 6px rgba(255, 255, 255, 0.05);
+  }
+
+  .dark .neo-btn-amber:hover {
+    color: rgb(253 230 138);
+    border-color: rgba(251, 191, 36, 0.55);
+    box-shadow: 3px 3px 9px rgba(0, 0, 0, 0.8), -2px -2px 6px rgba(255, 255, 255, 0.07), 0 0 12px rgba(251, 191, 36, 0.25);
+  }
+
+  .dark .neo-btn-amber:active,
+  .dark .neo-btn-amber[data-state="pressed"] {
+    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.9), inset -1px -1px 3px rgba(251, 191, 36, 0.3);
+  }
+
+  .neo-pill-amber {
+    background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+    color: rgb(217 119 6);
+    border: 1px solid rgba(251, 191, 36, 0.5);
+    box-shadow: 2px 2px 5px rgba(245, 158, 11, 0.2), -2px -2px 5px rgba(255, 255, 255, 0.95);
+  }
+
+  .dark .neo-pill-amber {
+    background: linear-gradient(135deg, rgba(45, 34, 18, 0.95) 0%, rgba(26, 22, 14, 0.95) 100%);
+    color: rgb(251 191 36);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7), -1px -1px 3px rgba(255, 255, 255, 0.06), 0 0 8px rgba(251, 191, 36, 0.2);
+  }
+
+  .neo-pill-amber-active {
+    background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+    color: rgb(217 119 6);
+    border: 1px solid rgba(251, 191, 36, 0.65);
+    box-shadow: 2px 2px 6px rgba(245, 158, 11, 0.28), -2px -2px 6px rgba(255, 255, 255, 0.95), 0 0 10px rgba(251, 191, 36, 0.25);
+  }
+
+  .dark .neo-pill-amber-active {
+    background: linear-gradient(135deg, rgba(55, 42, 22, 0.98) 0%, rgba(32, 25, 16, 0.98) 100%);
+    color: rgb(251 191 36);
+    border: 1px solid rgba(251, 191, 36, 0.5);
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.8), -1px -1px 3px rgba(255, 255, 255, 0.08), 0 0 12px rgba(251, 191, 36, 0.35);
+  }
+
+  .neo-icon-amber {
+    color: rgb(217 119 6);
+    border-color: rgba(251, 191, 36, 0.35);
+  }
+
+  .dark .neo-icon-amber {
+    color: rgb(251 191 36);
+    border-color: rgba(251, 191, 36, 0.3);
+  }
+
+  /* ─── Semantic Consistency: Delete Trigger ─── */
+  .neo-btn-delete {
+    color: rgb(225 29 72);
+    background: linear-gradient(135deg, #ffffff 0%, #fff1f2 100%);
+    border-color: rgba(244, 63, 94, 0.25);
+  }
+
+  .neo-btn-delete:hover {
+    color: rgb(190 18 60);
+    border-color: rgba(244, 63, 94, 0.45);
+    box-shadow: 3px 3px 8px rgba(225, 29, 72, 0.22), -3px -3px 8px rgba(255, 255, 255, 1), 0 0 10px rgba(244, 63, 94, 0.14);
+  }
+
+  .neo-btn-delete:active,
+  .neo-btn-delete[data-state="pressed"] {
+    box-shadow: inset 2px 2px 4px rgba(225, 29, 72, 0.28), inset -2px -2px 4px rgba(255, 255, 255, 0.9);
+  }
+
+  .dark .neo-btn-delete {
+    color: rgb(251 113 133);
+    background: linear-gradient(135deg, rgba(42, 24, 28, 0.95) 0%, rgba(24, 18, 20, 0.95) 100%);
+    border-color: rgba(244, 63, 94, 0.2);
+  }
+
+  .dark .neo-btn-delete:hover {
+    color: rgb(253 164 175);
+    border-color: rgba(244, 63, 94, 0.45);
+    box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.85), -2px -2px 6px rgba(255, 255, 255, 0.07), 0 0 12px rgba(244, 63, 94, 0.28);
+  }
+
+  .dark .neo-btn-delete:active,
+  .dark .neo-btn-delete[data-state="pressed"] {
+    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.9), inset -1px -1px 3px rgba(244, 63, 94, 0.3);
+  }
+
+  /* ─── Semantic: Primary Accent Neomorphic Button ─── */
+  .neo-btn-primary {
+    background: linear-gradient(135deg, rgb(var(--color-primary)) 0%, rgb(var(--color-primary) / 0.88) 100%);
+    color: rgb(var(--color-primary-fg));
+    border: 1px solid rgb(var(--color-primary) / 0.4);
+    box-shadow: 3px 3px 7px rgb(var(--color-primary) / 0.35), -2px -2px 6px rgba(255, 255, 255, 0.7);
+  }
+
+  .neo-btn-primary:hover {
+    box-shadow: 4px 4px 10px rgb(var(--color-primary) / 0.45), -3px -3px 8px rgba(255, 255, 255, 0.9), 0 0 12px rgb(var(--color-primary) / 0.25);
+    transform: translateY(-0.5px);
+  }
+
+  .neo-btn-primary:active,
+  .neo-btn-primary[data-state="pressed"] {
+    box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.28), inset -2px -2px 4px rgba(255, 255, 255, 0.25);
+    transform: scale(0.97) translateY(0.5px);
+  }
+
+  .dark .neo-btn-primary {
+    box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.75), -1px -1px 5px rgba(255, 255, 255, 0.08), 0 0 10px rgb(var(--color-primary) / 0.25);
+  }
+
+  .dark .neo-btn-primary:hover {
+    box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.85), -2px -2px 6px rgba(255, 255, 255, 0.12), 0 0 16px rgb(var(--color-primary) / 0.35);
+  }
+
+  /* ─── Neomorphic Inset Recessed Surface ─── */
+  .neo-inset {
+    background: #f1f4f8;
+    border: 1px solid rgba(215, 224, 236, 0.6);
+    box-shadow: inset 2px 2px 4px rgba(160, 175, 200, 0.32), inset -2px -2px 4px rgba(255, 255, 255, 0.85);
+  }
+
+  .dark .neo-inset {
+    background: #121215;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.8), inset -1px -1px 3px rgba(255, 255, 255, 0.03);
+  }
+
+  /* ─── Neomorphic Extruded Card / Surface ─── */
+  .neo-surface {
+    background: linear-gradient(145deg, #ffffff 0%, #f7f9fc 100%);
+    border: 1px solid rgba(224, 230, 240, 0.8);
+    box-shadow: 4px 4px 10px rgba(160, 175, 200, 0.22), -4px -4px 10px rgba(255, 255, 255, 0.95);
+  }
+
+  .dark .neo-surface {
+    background: linear-gradient(145deg, rgba(28, 28, 33, 0.95) 0%, rgba(18, 18, 22, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.65), -2px -2px 6px rgba(255, 255, 255, 0.04);
+  }
+
+  /* ─── Neomorphic Segmented Toggle / Pill ─── */
+  .neo-pill {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .neo-pill:hover:not(.neo-pill-active) {
+    color: rgb(var(--color-fg));
+    background: rgba(var(--color-muted), 0.7);
+  }
+
+  .neo-pill-active {
+    background: linear-gradient(135deg, #ffffff 0%, #f4f6fa 100%);
+    color: rgb(var(--color-fg));
+    border: 1px solid rgba(215, 224, 238, 0.7);
+    box-shadow: 2px 2px 5px rgba(160, 175, 200, 0.35), -2px -2px 5px rgba(255, 255, 255, 0.95);
+  }
+
+  .dark .neo-pill-active {
+    background: linear-gradient(135deg, #25252c 0%, #1a1a20 100%);
+    color: rgb(var(--color-fg));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7), -1px -1px 3px rgba(255, 255, 255, 0.06);
+  }
+
+  /* ─── Neomorphic Checkbox Control ─── */
+  .neo-checkbox-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 0.375rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f2f4f8 100%);
+    border: 1px solid rgba(215, 224, 238, 0.75);
+    box-shadow: 2px 2px 4px rgba(160, 175, 200, 0.4), -2px -2px 4px rgba(255, 255, 255, 0.95);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .neo-checkbox-box:hover {
+    box-shadow: 3px 3px 6px rgba(150, 168, 195, 0.48), -3px -3px 6px rgba(255, 255, 255, 1);
+  }
+
+  .dark .neo-checkbox-box {
+    background: linear-gradient(135deg, #24242a 0%, #16161b 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7), -1px -1px 3px rgba(255, 255, 255, 0.05);
+  }
+
+  .dark .neo-checkbox-box:hover {
+    box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.85), -1px -1px 4px rgba(255, 255, 255, 0.08);
+  }
+
+  .neo-checkbox-box[data-checked="true"] {
+    background: rgb(var(--color-primary));
+    border-color: rgb(var(--color-primary));
+    box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.3), inset -1px -1px 3px rgba(255, 255, 255, 0.25);
+  }
+
+  /* ─── Neomorphic Icon Wrapper ─── */
+  .neo-icon-wrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f4f6fa 100%);
+    border: 1px solid rgba(215, 224, 238, 0.65);
+    box-shadow: 2px 2px 4px rgba(160, 175, 200, 0.3), -2px -2px 4px rgba(255, 255, 255, 0.9);
+  }
+
+  .dark .neo-icon-wrapper {
+    background: linear-gradient(135deg, #222228 0%, #16161b 100%);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6), -1px -1px 3px rgba(255, 255, 255, 0.04);
   }
 }
 

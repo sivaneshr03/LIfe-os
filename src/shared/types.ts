@@ -7,6 +7,27 @@ export interface ApiSuccessResponse<T> {
   };
 }
 
+export interface ApiPaginatedResponse<T> {
+  success: true;
+  data: {
+    items: T[];
+    pagination?: {
+      page?: number;
+      pageSize?: number;
+      totalItems?: number;
+      totalCount?: number;
+      totalPages?: number;
+      hasNextPage?: boolean;
+      hasPrevPage?: boolean;
+      cursor?: string;
+    };
+  };
+  meta?: {
+    requestId: string;
+    timestamp: number;
+  };
+}
+
 export interface ApiErrorDetail {
   field?: string;
   message: string;

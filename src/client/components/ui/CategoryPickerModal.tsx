@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { CategoryData, CategoryDomain } from '../../shared/platformTypes';
+import type { CategoryData, CategoryDomain } from '../../../shared/types';
 import {
   IconSearch,
   IconX,

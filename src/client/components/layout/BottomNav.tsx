@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useAuthStore } from '../../stores/authStore';
@@ -25,7 +25,7 @@ export function BottomNav({ currentView, onNavigate }: BottomNavProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const mainItems = [
-    { id: 'dashboard', label: 'Home', icon: <IconDashboard size={20} /> },
+    { id: 'dashboard', label: 'Dashboard', icon: <IconDashboard size={20} /> },
     { id: 'tasks', label: 'Tasks', icon: <IconCheckSquare size={20} /> },
     { id: 'finance', label: 'Finance', icon: <IconCreditCard size={20} /> },
     { id: 'notes', label: 'Notes', icon: <IconFileText size={20} /> },
@@ -38,10 +38,10 @@ export function BottomNav({ currentView, onNavigate }: BottomNavProps) {
 
   return (
     <>
-      {/* Mobile Floating Pill Dock Navigation */}
+      {/* Mobile Floating Cockpit Pill Navigation */}
       <nav
         aria-label="Mobile navigation"
-        className="md:hidden fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] left-3 right-3 h-16 bg-card/90 backdrop-blur-2xl border border-border/80 rounded-2xl shadow-float z-40 flex items-center justify-around px-2"
+        className="md:hidden fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] left-3 right-3 h-16 bg-surface-container-lowest/90 backdrop-blur-2xl border border-border/80 rounded-2xl shadow-float z-40 flex items-center justify-around px-2"
       >
         {mainItems.map((item) => {
           const isActive = currentView === item.id;
@@ -55,16 +55,16 @@ export function BottomNav({ currentView, onNavigate }: BottomNavProps) {
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                   isActive
                     ? 'text-primary font-bold'
-                    : 'text-foreground/50 hover:text-foreground'
+                    : 'text-on-surface-variant hover:text-on-surface'
                 )
               )}
             >
               <span className="shrink-0 mb-0.5" aria-hidden="true">
                 {item.icon}
               </span>
-              <span className="text-[10px] tracking-tight leading-none">{item.label}</span>
+              <span className="font-label-caps text-[10px] tracking-tight leading-none">{item.label}</span>
               {isActive && (
-                <span className="w-1 h-1 rounded-full bg-primary mt-0.5" />
+                <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1 shadow-sm" />
               )}
             </button>
           );
@@ -78,16 +78,16 @@ export function BottomNav({ currentView, onNavigate }: BottomNavProps) {
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
               ['admin', 'settings', 'trackers', 'investments'].includes(currentView)
                 ? 'text-primary font-bold'
-                : 'text-foreground/50 hover:text-foreground'
+                : 'text-on-surface-variant hover:text-on-surface'
             )
           )}
         >
           <span className="shrink-0 mb-0.5" aria-hidden="true">
             <IconMenu size={20} />
           </span>
-          <span className="text-[10px] tracking-tight leading-none">More</span>
+          <span className="font-label-caps text-[10px] tracking-tight leading-none">More</span>
           {['admin', 'settings', 'trackers', 'investments'].includes(currentView) && (
-            <span className="w-1 h-1 rounded-full bg-primary mt-0.5" />
+            <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1 shadow-sm" />
           )}
         </button>
       </nav>
@@ -100,15 +100,17 @@ export function BottomNav({ currentView, onNavigate }: BottomNavProps) {
             onClick={() => setDrawerOpen(false)}
             aria-hidden="true"
           />
-          <div className="bg-card text-card-foreground border-t border-border/80 rounded-t-3xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] shadow-float animate-slide-up space-y-4">
+          <div className="bg-surface-container-lowest text-on-surface border-t border-border/80 rounded-t-3xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] shadow-float animate-slide-up space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-border/60">
               <div className="flex items-center gap-2.5">
                 <img src="/logo.png" alt="LifeOS Logo" className="w-6 h-6 rounded-lg object-contain" />
-                <span className="text-sm font-bold tracking-tight text-foreground">LifeOS Menu</span>
+                <span className="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">
+                  LifeOS
+                </span>
               </div>
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="text-foreground/40 hover:text-foreground p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-muted touch-manipulation"
+                className="text-outline hover:text-on-surface p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-surface-container touch-manipulation"
                 aria-label="Close menu"
               >
                 <IconX size={18} />
@@ -118,46 +120,46 @@ export function BottomNav({ currentView, onNavigate }: BottomNavProps) {
             <div className="grid grid-cols-2 gap-2.5 pt-1">
               <button
                 onClick={() => handleSelect('trackers')}
-                className="flex items-center gap-2.5 p-3.5 min-h-[48px] rounded-xl border border-border/70 bg-card text-xs font-semibold text-left hover:bg-muted/70 active:scale-98 transition-all touch-manipulation"
+                className="flex items-center gap-2.5 p-3.5 min-h-[48px] rounded-xl border border-border/70 bg-surface-container-low text-xs font-semibold text-left hover:bg-surface-container active:scale-98 transition-all touch-manipulation"
               >
                 <IconTarget size={18} className="text-primary" />
-                <span>Habits & Trackers</span>
+                <span className="font-title-sm text-title-sm">Habits & Trackers</span>
               </button>
               <button
                 onClick={() => handleSelect('investments')}
-                className="flex items-center gap-2.5 p-3.5 min-h-[48px] rounded-xl border border-border/70 bg-card text-xs font-semibold text-left hover:bg-muted/70 active:scale-98 transition-all touch-manipulation"
+                className="flex items-center gap-2.5 p-3.5 min-h-[48px] rounded-xl border border-border/70 bg-surface-container-low text-xs font-semibold text-left hover:bg-surface-container active:scale-98 transition-all touch-manipulation"
               >
-                <IconCreditCard size={18} className="text-emerald-500" />
-                <span>Investments</span>
+                <IconCreditCard size={18} className="text-secondary" />
+                <span className="font-title-sm text-title-sm">Investments</span>
               </button>
               <button
                 onClick={() => handleSelect('settings')}
-                className="flex items-center gap-2.5 p-3.5 min-h-[48px] rounded-xl border border-border/70 bg-card text-xs font-semibold text-left hover:bg-muted/70 active:scale-98 transition-all touch-manipulation"
+                className="flex items-center gap-2.5 p-3.5 min-h-[48px] rounded-xl border border-border/70 bg-surface-container-low text-xs font-semibold text-left hover:bg-surface-container active:scale-98 transition-all touch-manipulation"
               >
-                <IconSettings size={18} className="text-foreground/60" />
-                <span>Settings</span>
+                <IconSettings size={18} className="text-outline" />
+                <span className="font-title-sm text-title-sm">Settings</span>
               </button>
               {user?.role === 'admin' && (
                 <button
                   onClick={() => handleSelect('admin')}
-                  className="flex items-center gap-2.5 p-3.5 min-h-[48px] rounded-xl border border-primary/30 bg-primary/5 text-primary text-xs font-bold text-left hover:bg-primary/10 active:scale-98 transition-all touch-manipulation"
+                  className="flex items-center gap-2.5 p-3.5 min-h-[48px] rounded-xl border border-primary/30 bg-primary-fixed/40 text-primary text-xs font-bold text-left hover:bg-primary-fixed/60 active:scale-98 transition-all touch-manipulation"
                 >
                   <IconShield size={18} />
-                  <span>Admin Panel</span>
+                  <span className="font-title-sm text-title-sm">Admin Panel</span>
                 </button>
               )}
             </div>
 
-            <div className="pt-3 border-t border-border/60 flex justify-between items-center text-xs text-foreground/60">
-              <span>Signed in as <strong className="text-foreground">{user?.name}</strong></span>
+            <div className="pt-3 border-t border-border/60 flex justify-between items-center text-xs text-on-surface-variant">
+              <span>Signed in as <strong className="text-on-surface">{user?.name}</strong></span>
               <button
                 onClick={() => {
                   setDrawerOpen(false);
                   logout();
                 }}
-                className="text-rose-500 font-semibold inline-flex items-center gap-1.5 p-1 rounded-md hover:bg-rose-500/10"
+                className="text-rose-500 font-semibold inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-[44px] rounded-lg hover:bg-rose-500/10 touch-manipulation cursor-pointer"
               >
-                <IconLogOut size={14} />
+                <IconLogOut size={15} />
                 <span>Sign Out</span>
               </button>
             </div>

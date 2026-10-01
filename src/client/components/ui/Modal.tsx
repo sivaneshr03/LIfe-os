@@ -164,12 +164,12 @@ export function Modal({
         className={twMerge(
           clsx(
             // Dimensions & Layout
-            'relative w-full text-card-foreground outline-none',
+            'relative w-full text-on-surface outline-none',
             'max-h-[92dvh] sm:max-h-[88dvh] flex flex-col',
             'pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-0',
-            // Spatial Hardware Double-Bezel & Antigravity Aesthetics
-            'bg-card/95 backdrop-blur-xl border-t sm:border border-border/80 dark:border-white/10 rounded-t-3xl sm:rounded-3xl',
-            'shadow-float glass-inner dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.12)]',
+            // Cockpit Bento Minimal Double-Bezel Card Aesthetics
+            'bg-surface-container-lowest border-t sm:border border-border/70 rounded-t-3xl sm:rounded-2xl',
+            'shadow-xl',
             // Animation & Scale
             'animate-scale-in',
             sizeClasses[size] || sizeClasses.md,
@@ -178,13 +178,13 @@ export function Modal({
         )}
       >
         {/* Modal Header */}
-        <div className="flex items-start justify-between px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-border/60 shrink-0">
+        <div className="flex items-start justify-between px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-border/70 shrink-0">
           <div className="space-y-1 pr-4">
-            <h2 id={titleId} className="text-base sm:text-lg font-bold tracking-tight text-foreground">
+            <h2 id={titleId} className="font-headline-md font-bold tracking-tight text-on-surface">
               {title}
             </h2>
             {description && (
-              <p id={descId} className="text-xs text-foreground/60 leading-relaxed max-w-prose">
+              <p id={descId} className="font-body-sm text-on-surface-variant leading-relaxed max-w-prose">
                 {description}
               </p>
             )}
@@ -193,7 +193,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="w-10 h-10 sm:w-8 sm:h-8 min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] flex items-center justify-center shrink-0 -mr-1 -mt-1 text-foreground/40 hover:text-foreground hover:bg-muted/70 active:scale-95 rounded-xl transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary touch-manipulation"
+            className="w-10 h-10 sm:w-8 sm:h-8 min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] flex items-center justify-center shrink-0 -mr-1 -mt-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low active:scale-95 rounded-xl transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary touch-manipulation"
           >
             <IconX size={18} />
           </button>

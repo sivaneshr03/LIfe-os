@@ -6,9 +6,11 @@ import {
   IconDashboard,
   IconCheckSquare,
   IconCreditCard,
+  IconPayments,
   IconTrendingUp,
   IconFileText,
   IconTarget,
+  IconChefHat,
   IconSettings,
   IconSearch,
 } from './Icons';
@@ -88,6 +90,16 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
       },
     },
     {
+      id: 'nav-lending',
+      title: 'Go to Lending, Payees & Debt Registry',
+      category: 'Navigation',
+      icon: <IconPayments size={18} />,
+      action: () => {
+        onNavigate('lending');
+        onClose();
+      },
+    },
+    {
       id: 'nav-investments',
       title: 'Go to Investments & Portfolio',
       category: 'Navigation',
@@ -114,6 +126,16 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
       icon: <IconTarget size={18} />,
       action: () => {
         onNavigate('trackers');
+        onClose();
+      },
+    },
+    {
+      id: 'nav-culinary',
+      title: 'Go to Culinary & Kitchen',
+      category: 'Navigation',
+      icon: <IconChefHat size={18} />,
+      action: () => {
+        onNavigate('culinary');
         onClose();
       },
     },
@@ -179,11 +201,11 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl bg-card border border-border/80 dark:border-white/10 rounded-2xl shadow-float overflow-hidden flex flex-col max-h-[70dvh] glass-inner animate-scale-in"
+        className="w-full max-w-xl bg-surface-container-lowest border border-border/70 rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[70dvh] animate-scale-in text-on-surface"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center px-4 border-b border-border/60 bg-muted/20">
-          <IconSearch size={18} className="text-foreground/40 mr-3 shrink-0" />
+        <div className="flex items-center px-4 border-b border-border/70 bg-surface-container-low">
+          <IconSearch size={18} className="text-on-surface-variant/60 mr-3 shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -193,16 +215,16 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
               setSelectedIndex(0);
             }}
             placeholder="Type a command or search anything..."
-            className="w-full py-4 bg-transparent text-base sm:text-sm text-foreground focus:outline-none placeholder:text-foreground/40 font-medium touch-manipulation"
+            className="w-full py-4 bg-transparent text-base sm:text-sm text-on-surface focus:outline-none placeholder:text-on-surface-variant/40 font-medium touch-manipulation"
           />
-          <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-mono font-medium text-foreground/50 bg-muted border border-border/60 rounded">
+          <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-mono font-medium text-on-surface-variant bg-surface-container-lowest border border-border/70 rounded-lg shadow-2xs">
             ESC
           </kbd>
         </div>
 
         <div className="p-2 overflow-y-auto divide-y divide-border/20">
           {filtered.length === 0 ? (
-            <div className="p-8 text-center text-xs text-foreground/50">
+            <div className="p-8 text-center text-xs text-on-surface-variant">
               No matching commands or navigation links found.
             </div>
           ) : (
@@ -219,7 +241,7 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
                         'w-full flex items-center justify-between px-3.5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[38px] text-xs font-semibold rounded-xl transition-all duration-100 text-left focus:outline-none cursor-pointer touch-manipulation',
                         isSelected
                           ? 'bg-primary text-primary-foreground shadow-xs'
-                          : 'text-foreground/80 hover:bg-muted/70'
+                          : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
                       )
                     )}
                   >
@@ -227,7 +249,7 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
                       <span
                         className={clsx(
                           'shrink-0',
-                          isSelected ? 'text-primary-foreground' : 'text-foreground/50'
+                          isSelected ? 'text-primary-foreground' : 'text-on-surface-variant'
                         )}
                       >
                         {item.icon}
@@ -237,7 +259,7 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
                     <span
                       className={clsx(
                         'text-[10px] uppercase font-mono font-bold tracking-wider shrink-0',
-                        isSelected ? 'text-primary-foreground/80' : 'text-foreground/40'
+                        isSelected ? 'text-primary-foreground/80' : 'text-on-surface-variant/60'
                       )}
                     >
                       {item.category}
@@ -249,16 +271,16 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
           )}
         </div>
 
-        <div className="px-4 py-2.5 border-t border-border/60 bg-muted/20 flex items-center justify-between text-[11px] text-foreground/50 font-medium">
+        <div className="px-4 py-2.5 border-t border-border/70 bg-surface-container-low flex items-center justify-between text-[11px] text-on-surface-variant font-medium">
           <span>Navigation</span>
           <div className="flex items-center gap-3">
             <span>
-              <kbd className="px-1.5 py-0.5 bg-muted border border-border/60 rounded font-mono text-[10px]">↑</kbd>{' '}
-              <kbd className="px-1.5 py-0.5 bg-muted border border-border/60 rounded font-mono text-[10px]">↓</kbd> to
+              <kbd className="px-1.5 py-0.5 bg-surface-container-lowest border border-border/70 rounded-md font-mono text-[10px]">↑</kbd>{' '}
+              <kbd className="px-1.5 py-0.5 bg-surface-container-lowest border border-border/70 rounded-md font-mono text-[10px]">↓</kbd> to
               navigate
             </span>
             <span>
-              <kbd className="px-1.5 py-0.5 bg-muted border border-border/60 rounded font-mono text-[10px]">↵</kbd> to
+              <kbd className="px-1.5 py-0.5 bg-surface-container-lowest border border-border/70 rounded-md font-mono text-[10px]">↵</kbd> to
               select
             </span>
           </div>

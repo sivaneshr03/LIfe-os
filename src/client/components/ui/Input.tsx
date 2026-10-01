@@ -19,13 +19,13 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full space-y-1.5 text-left">
         {label && (
-          <label htmlFor={inputId} className="block text-xs font-semibold tracking-tight text-foreground/80">
+          <label htmlFor={inputId} className="block font-label-caps text-on-surface-variant">
             {label}
           </label>
         )}
         <div className="relative flex items-center">
           {leftIcon && (
-            <div className="absolute left-3 flex items-center pointer-events-none text-foreground/40">
+            <div className="absolute left-3 flex items-center pointer-events-none text-on-surface-variant/60">
               {leftIcon}
             </div>
           )}
@@ -36,15 +36,15 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             aria-describedby={error ? errorId : hint ? hintId : undefined}
             className={twMerge(
               clsx(
-                'w-full px-3.5 py-2.5 sm:py-2 text-base sm:text-sm min-h-[44px] sm:min-h-[40px] bg-card text-foreground border rounded-token placeholder:text-foreground/35 touch-manipulation',
+                'w-full px-3.5 py-2.5 sm:py-2 text-base sm:text-sm min-h-[42px] sm:min-h-[40px] bg-surface-container-low text-on-surface border rounded-xl placeholder:text-on-surface-variant/40 touch-manipulation',
                 'transition-all duration-150 ease-out shadow-xs',
                 'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-                'disabled:opacity-50 disabled:bg-muted/40 disabled:cursor-not-allowed',
+                'disabled:opacity-50 disabled:bg-surface-container-high disabled:cursor-not-allowed',
                 leftIcon ? 'pl-9' : '',
                 rightAction ? 'pr-9' : '',
                 error
                   ? 'border-red-500/80 focus:ring-red-500/20 focus:border-red-500'
-                  : 'border-border/80 hover:border-border',
+                  : 'border-border/70 hover:border-border',
                 className
               )
             )}
@@ -57,7 +57,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {hint && !error && (
-          <p id={hintId} className="text-[11px] text-foreground/50 leading-relaxed">
+          <p id={hintId} className="font-body-sm text-on-surface-variant leading-relaxed">
             {hint}
           </p>
         )}
