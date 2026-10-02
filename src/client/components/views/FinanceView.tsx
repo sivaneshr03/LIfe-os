@@ -7,7 +7,7 @@ import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { LoadingState } from '../ui/States';
 import { useToast } from '../ui/Toast';
 import { KpiCard, KpiGrid } from '../ui/KpiCard';
-import { IconPlus, IconRefreshCw, IconChevronRight, IconTrash, IconFileText, IconUploadCloud } from '../ui/Icons';
+import { IconPlus, IconRefreshCw, IconChevronRight, IconTrash, IconFileText, IconUploadCloud, IconEdit, IconSearch, IconCreditCard } from '../ui/Icons';
 import { FinanceCsvImportModal } from '../ui/FinanceCsvImportModal';
 import { CategoryPickerModal } from '../ui/CategoryPickerModal';
 import { CategoryDropdown } from '../ui/CategoryDropdown';
@@ -27,231 +27,17 @@ import type {
 } from '../../../shared/types';
 import { safeParseJson } from '../../lib/api';
 
-// Static mock datasets strictly adhering to AGENTS.md integer minor units & FinanceAccountType
-const DEFAULT_MOCK_ACCOUNTS: FinanceAccountData[] = [
-  {
-    id: 'acc_checking',
-    userId: 'usr_local_dev',
-    categoryId: 'cat_salary',
-    name: 'Primary Checking (HDFC)',
-    type: 'checking',
-    currency: 'INR',
-    balanceCents: 14520000,
-    isArchived: false,
-    sortOrder: 1,
-    transactionCount: 5,
-    createdAt: Date.now() - 86400000 * 30,
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'acc_savings',
-    userId: 'usr_local_dev',
-    categoryId: 'cat_investments',
-    name: 'Emergency Vault (ICICI)',
-    type: 'savings',
-    currency: 'INR',
-    balanceCents: 65000000,
-    isArchived: false,
-    sortOrder: 2,
-    transactionCount: 2,
-    createdAt: Date.now() - 86400000 * 60,
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'acc_credit',
-    userId: 'usr_local_dev',
-    categoryId: 'cat_utilities',
-    name: 'Titanium Credit Card',
-    type: 'credit',
-    currency: 'INR',
-    balanceCents: -1845000,
-    isArchived: false,
-    sortOrder: 3,
-    transactionCount: 4,
-    createdAt: Date.now() - 86400000 * 45,
-    updatedAt: Date.now(),
-  },
-];
-
-const DEFAULT_MOCK_OVERVIEW: FinanceOverviewData = {
-  netWorth: {
-    totalAssetsCents: 79520000,
-    totalLiabilitiesCents: 1845000,
-    netWorthCents: 77675000,
-    baseCurrency: 'INR',
-    asOfDate: new Date().toISOString().slice(0, 10),
-    accountBreakdown: [
-      { id: 'acc_checking', name: 'Primary Checking (HDFC)', type: 'checking', balanceCents: 14520000, isAsset: true },
-      { id: 'acc_savings', name: 'Emergency Vault (ICICI)', type: 'savings', balanceCents: 65000000, isAsset: true },
-      { id: 'acc_credit', name: 'Titanium Credit Card', type: 'credit', balanceCents: -1845000, isAsset: false },
-    ],
-  },
-  monthlyIncomeCents: 12500000,
-  monthlyExpenseCents: 4210000,
-  monthlySavingsRatePercentage: 66,
-  activeBudgets: [],
-  activeDebts: [],
-};
-
-const DEFAULT_MOCK_TRANSACTIONS: FinanceTransactionData[] = [
-  {
-    id: 'txn_mock_1',
-    userId: 'usr_local_dev',
-    accountId: 'acc_checking',
-    categoryId: 'cat_salary',
-    categoryName: 'Salary & Income',
-    type: 'income',
-    amountCents: 12500000,
-    transactionDate: '2026-09-28',
-    timestampMs: Date.now() - 86400000 * 2,
-    payee: 'Tech Corp Payroll',
-    notes: 'Monthly engineering salary',
-    isReconciled: true,
-    hasSplits: false,
-    createdAt: Date.now() - 86400000 * 2,
-    updatedAt: Date.now() - 86400000 * 2,
-  },
-  {
-    id: 'txn_mock_2',
-    userId: 'usr_local_dev',
-    accountId: 'acc_checking',
-    categoryId: 'cat_groceries',
-    categoryName: 'Groceries',
-    type: 'expense',
-    amountCents: 485000,
-    transactionDate: '2026-09-27',
-    timestampMs: Date.now() - 86400000 * 3,
-    payee: 'Whole Foods Market',
-    notes: 'Weekly organic groceries',
-    isReconciled: true,
-    hasSplits: false,
-    createdAt: Date.now() - 86400000 * 3,
-    updatedAt: Date.now() - 86400000 * 3,
-  },
-  {
-    id: 'txn_mock_3',
-    userId: 'usr_local_dev',
-    accountId: 'acc_credit',
-    categoryId: 'cat_utilities',
-    categoryName: 'Utilities & Cloud',
-    type: 'expense',
-    amountCents: 199900,
-    transactionDate: '2026-09-25',
-    timestampMs: Date.now() - 86400000 * 5,
-    payee: 'Cloudflare Inc',
-    notes: 'Edge workers and D1 storage',
-    isReconciled: true,
-    hasSplits: false,
-    createdAt: Date.now() - 86400000 * 5,
-    updatedAt: Date.now() - 86400000 * 5,
-  },
-  {
-    id: 'txn_mock_4',
-    userId: 'usr_local_dev',
-    accountId: 'acc_checking',
-    categoryId: 'cat_dining',
-    categoryName: 'Dining & Food',
-    type: 'expense',
-    amountCents: 145000,
-    transactionDate: '2026-09-24',
-    timestampMs: Date.now() - 86400000 * 6,
-    payee: 'Artisan Cafe',
-    notes: 'Team coffee & lunch',
-    isReconciled: true,
-    hasSplits: false,
-    createdAt: Date.now() - 86400000 * 6,
-    updatedAt: Date.now() - 86400000 * 6,
-  },
-  {
-    id: 'txn_mock_5',
-    userId: 'usr_local_dev',
-    accountId: 'acc_checking',
-    categoryId: 'cat_fitness',
-    categoryName: 'Health & Fitness',
-    type: 'expense',
-    amountCents: 350000,
-    transactionDate: '2026-09-22',
-    timestampMs: Date.now() - 86400000 * 8,
-    payee: 'Equinox Fitness Club',
-    notes: 'Monthly gym membership',
-    isReconciled: true,
-    hasSplits: false,
-    createdAt: Date.now() - 86400000 * 8,
-    updatedAt: Date.now() - 86400000 * 8,
-  },
-];
-
-const DEFAULT_MOCK_CATEGORIES: CategoryData[] = [
-  { id: 'cat_salary', userId: 'usr_local_dev', name: 'Salary & Income', color: '#10b981', icon: 'trending-up', domain: 'finance', sortOrder: 1, isSystemDefault: true, createdAt: Date.now(), updatedAt: Date.now() },
-  { id: 'cat_groceries', userId: 'usr_local_dev', name: 'Groceries', color: '#6366f1', icon: 'shopping-cart', domain: 'finance', sortOrder: 2, isSystemDefault: true, createdAt: Date.now(), updatedAt: Date.now() },
-  { id: 'cat_utilities', userId: 'usr_local_dev', name: 'Utilities & Cloud', color: '#06b6d4', icon: 'cpu', domain: 'finance', sortOrder: 3, isSystemDefault: true, createdAt: Date.now(), updatedAt: Date.now() },
-  { id: 'cat_dining', userId: 'usr_local_dev', name: 'Dining & Food', color: '#f59e0b', icon: 'coffee', domain: 'finance', sortOrder: 4, isSystemDefault: true, createdAt: Date.now(), updatedAt: Date.now() },
-  { id: 'cat_fitness', userId: 'usr_local_dev', name: 'Health & Fitness', color: '#ec4899', icon: 'heart', domain: 'finance', sortOrder: 5, isSystemDefault: true, createdAt: Date.now(), updatedAt: Date.now() },
-];
-
-const DEFAULT_MOCK_BUDGETS: FinanceBudgetData[] = [
-  {
-    id: 'bud_mock_1',
-    userId: 'usr_local_dev',
-    categoryId: 'cat_groceries',
-    categoryName: 'Groceries',
-    period: 'monthly',
-    yearMonth: new Date().toISOString().slice(0, 7),
-    amountCents: 2000000,
-    spentCents: 485000,
-    remainingCents: 1515000,
-    percentageUsed: 24,
-    rollover: false,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'bud_mock_2',
-    userId: 'usr_local_dev',
-    categoryId: 'cat_dining',
-    categoryName: 'Dining & Food',
-    period: 'monthly',
-    yearMonth: new Date().toISOString().slice(0, 7),
-    amountCents: 1000000,
-    spentCents: 145000,
-    remainingCents: 855000,
-    percentageUsed: 15,
-    rollover: false,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-];
-
-const DEFAULT_MOCK_DEBTS: FinanceDebtData[] = [
-  {
-    id: 'debt_mock_1',
-    userId: 'usr_local_dev',
-    name: 'Titanium Credit Card',
-    creditor: 'HDFC Bank',
-    debtType: 'credit_card',
-    totalOwedCents: 5000000,
-    remainingBalanceCents: 1845000,
-    totalPaidCents: 3155000,
-    interestRateBps: 1850,
-    minimumPaymentCents: 250000,
-    isPaidOff: false,
-    dueDate: `${new Date().toISOString().slice(0, 7)}-15`,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-];
-
 export function FinanceView() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'accounts' | 'transactions' | 'budgets' | 'debts'>('overview');
 
-  const [overview, setOverview] = useState<FinanceOverviewData | null>(DEFAULT_MOCK_OVERVIEW);
-  const [accounts, setAccounts] = useState<FinanceAccountData[]>(DEFAULT_MOCK_ACCOUNTS);
-  const [transactions, setTransactions] = useState<FinanceTransactionData[]>(DEFAULT_MOCK_TRANSACTIONS);
-  const [budgets, setBudgets] = useState<FinanceBudgetData[]>(DEFAULT_MOCK_BUDGETS);
-  const [debts, setDebts] = useState<FinanceDebtData[]>(DEFAULT_MOCK_DEBTS);
-  const [categories, setCategories] = useState<CategoryData[]>(DEFAULT_MOCK_CATEGORIES);
+  const [_overview, setOverview] = useState<FinanceOverviewData | null>(null);
+  const [accounts, setAccounts] = useState<FinanceAccountData[]>([]);
+  const [transactions, setTransactions] = useState<FinanceTransactionData[]>([]);
+  const [budgets, setBudgets] = useState<FinanceBudgetData[]>([]);
+  const [debts, setDebts] = useState<FinanceDebtData[]>([]);
+  const [categories, setCategories] = useState<CategoryData[]>([]);
 
   // Category Picker State
   const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
@@ -270,6 +56,15 @@ export function FinanceView() {
   const [submitting, setSubmitting] = useState(false);
   const [accountToDelete, setAccountToDelete] = useState<FinanceAccountData | null>(null);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<FinanceAccountData | null>(null);
+
+  const [editingBudget, setEditingBudget] = useState<FinanceBudgetData | null>(null);
+  const [budgetToDelete, setBudgetToDelete] = useState<FinanceBudgetData | null>(null);
+  const [isDeletingBudget, setIsDeletingBudget] = useState(false);
+
+  const [editingDebt, setEditingDebt] = useState<FinanceDebtData | null>(null);
+  const [debtToDelete, setDebtToDelete] = useState<FinanceDebtData | null>(null);
+  const [isDeletingDebt, setIsDeletingDebt] = useState(false);
 
   // Form validation errors state
   const [accErrors, setAccErrors] = useState<Record<string, string>>({});
@@ -286,7 +81,7 @@ export function FinanceView() {
   const [accCurrency, setAccCurrency] = useState('INR');
 
   // New Transaction form state
-  const [txnAccountId, setTxnAccountId] = useState('acc_checking');
+  const [txnAccountId, setTxnAccountId] = useState('');
   const [txnCategoryId, setTxnCategoryId] = useState('');
   const [txnType, setTxnType] = useState<FinanceTransactionType>('expense');
   const [txnAmount, setTxnAmount] = useState('');
@@ -294,14 +89,14 @@ export function FinanceView() {
   const [txnDate, setTxnDate] = useState(new Date().toISOString().slice(0, 10));
 
   // Transfer form state
-  const [transferFromId, setTransferFromId] = useState('acc_checking');
-  const [transferToId, setTransferToId] = useState('acc_savings');
+  const [transferFromId, setTransferFromId] = useState('');
+  const [transferToId, setTransferToId] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferDate, setTransferDate] = useState(new Date().toISOString().slice(0, 10));
   const [transferNotes, setTransferNotes] = useState('');
 
   // Budget form state
-  const [budgetCatId, setBudgetCatId] = useState('cat_groceries');
+  const [budgetCatId, setBudgetCatId] = useState('');
   const [budgetAmount, setBudgetAmount] = useState('');
   const [budgetPeriod, setBudgetPeriod] = useState<'monthly' | 'yearly'>('monthly');
 
@@ -317,6 +112,18 @@ export function FinanceView() {
   const [payoffPrincipal, setPayoffPrincipal] = useState('');
   const [payoffInterest, setPayoffInterest] = useState('');
   const [payoffDate, setPayoffDate] = useState(new Date().toISOString().slice(0, 10));
+
+  // Transactions Filter & Edit State (Active Filters)
+  const [txnSearch, setTxnSearch] = useState('');
+  const [txnFilterType, setTxnFilterType] = useState<'all' | 'expense' | 'income' | 'transfer'>('all');
+  const [txnFilterCat, setTxnFilterCat] = useState<string>('all');
+  const [isEditTxnModalOpen, setIsEditTxnModalOpen] = useState(false);
+  const [editingTxn, setEditingTxn] = useState<FinanceTransactionData | null>(null);
+  const [editTxnAmount, setEditTxnAmount] = useState('');
+  const [editTxnPayee, setEditTxnPayee] = useState('');
+  const [editTxnDate, setEditTxnDate] = useState(new Date().toISOString().slice(0, 10));
+  const [editTxnCategoryId, setEditTxnCategoryId] = useState('');
+  const [editTxnType, setEditTxnType] = useState<FinanceTransactionType>('expense');
 
   const fetchFinanceData = useCallback(async () => {
     try {
@@ -381,41 +188,33 @@ export function FinanceView() {
         }
       }
 
-      const finalAccounts = loadedAccounts.length > 0 ? loadedAccounts : DEFAULT_MOCK_ACCOUNTS;
-      const finalOverview = loadedOverview || DEFAULT_MOCK_OVERVIEW;
-      const finalTransactions = loadedTransactions.length > 0 ? loadedTransactions : DEFAULT_MOCK_TRANSACTIONS;
-      const finalBudgets = loadedBudgets.length > 0 ? loadedBudgets : DEFAULT_MOCK_BUDGETS;
-      const finalDebts = loadedDebts.length > 0 ? loadedDebts : DEFAULT_MOCK_DEBTS;
-      const finalCategories = loadedCategories.length > 0 ? loadedCategories : DEFAULT_MOCK_CATEGORIES;
+      setAccounts(loadedAccounts);
+      setOverview(loadedOverview);
+      setTransactions(loadedTransactions);
+      setBudgets(loadedBudgets);
+      setDebts(loadedDebts);
+      setCategories(loadedCategories);
 
-      setAccounts(finalAccounts);
-      setOverview(finalOverview);
-      setTransactions(finalTransactions);
-      setBudgets(finalBudgets);
-      setDebts(finalDebts);
-      setCategories(finalCategories);
-
-      if (finalAccounts.length > 0) {
-        setTxnAccountId((prev) => prev || finalAccounts[0].id);
-        if (finalAccounts.length >= 2) {
-          setTransferFromId((prev) => prev || finalAccounts[0].id);
-          setTransferToId((prev) => prev || finalAccounts[1].id);
+      if (loadedAccounts.length > 0) {
+        setTxnAccountId((prev) => prev || loadedAccounts[0].id);
+        if (loadedAccounts.length >= 2) {
+          setTransferFromId((prev) => prev || loadedAccounts[0].id);
+          setTransferToId((prev) => prev || loadedAccounts[1].id);
+        } else {
+          setTransferFromId((prev) => prev || loadedAccounts[0].id);
+          setTransferToId((prev) => prev || loadedAccounts[0].id);
         }
       }
-      if (finalCategories.length > 0) {
-        setBudgetCatId((prev) => prev || finalCategories[0].id);
+      if (loadedCategories.length > 0) {
+        setBudgetCatId((prev) => prev || loadedCategories[0].id);
       }
     } catch {
-      // Graceful offline mock fallback
-      setAccounts(DEFAULT_MOCK_ACCOUNTS);
-      setOverview(DEFAULT_MOCK_OVERVIEW);
-      setTransactions(DEFAULT_MOCK_TRANSACTIONS);
-      setBudgets(DEFAULT_MOCK_BUDGETS);
-      setDebts(DEFAULT_MOCK_DEBTS);
-      setCategories(DEFAULT_MOCK_CATEGORIES);
-      setTxnAccountId('acc_checking');
-      setTransferFromId('acc_checking');
-      setTransferToId('acc_savings');
+      setAccounts([]);
+      setOverview(null);
+      setTransactions([]);
+      setBudgets([]);
+      setDebts([]);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -476,6 +275,26 @@ export function FinanceView() {
     }
   };
 
+  const handleOpenCreateAccount = () => {
+    setEditingAccount(null);
+    setAccName('');
+    setAccType('checking');
+    setAccBalance('');
+    setAccCurrency('INR');
+    setAccErrors({});
+    setIsAccountModalOpen(true);
+  };
+
+  const handleOpenEditAccount = (acc: FinanceAccountData) => {
+    setEditingAccount(acc);
+    setAccName(acc.name);
+    setAccType(acc.type);
+    setAccCurrency(acc.currency);
+    setAccBalance('');
+    setAccErrors({});
+    setIsAccountModalOpen(true);
+  };
+
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     const errors: Record<string, string> = {};
@@ -498,6 +317,34 @@ export function FinanceView() {
 
     try {
       setSubmitting(true);
+
+      if (editingAccount) {
+        await fetch(`/api/finance/accounts/${editingAccount.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: accName.trim(),
+            type: accType,
+            currency: accCurrency,
+          }),
+        }).catch(() => null);
+
+        setAccounts((prev) =>
+          prev.map((a) =>
+            a.id === editingAccount.id
+              ? { ...a, name: accName.trim(), type: accType, currency: accCurrency, updatedAt: Date.now() }
+              : a
+          )
+        );
+        addToast(`Account "${accName.trim()}" updated`, 'success');
+        setIsAccountModalOpen(false);
+        setEditingAccount(null);
+        setAccName('');
+        setAccBalance('');
+        fetchFinanceData();
+        return;
+      }
+
       const initialBalanceCents = accBalance.trim() ? parseMoney(accBalance.trim(), accCurrency) : 0;
       const res = await fetch('/api/finance/accounts', {
         method: 'POST',
@@ -659,6 +506,118 @@ export function FinanceView() {
     }
   };
 
+  // Real-time Delete Transaction with optimistic balance reversal
+  const handleDeleteTransaction = async (txn: FinanceTransactionData) => {
+    // 1. Optimistic real-time UI state update
+    setTransactions((prev) => prev.filter((t) => t.id !== txn.id));
+
+    setAccounts((prev) =>
+      prev.map((acc) => {
+        if (acc.id === txn.accountId) {
+          const delta = txn.type === 'income' ? -txn.amountCents : txn.amountCents;
+          return {
+            ...acc,
+            balanceCents: acc.balanceCents + delta,
+            transactionCount: Math.max(0, (acc.transactionCount ?? 1) - 1),
+          };
+        }
+        if (txn.type === 'transfer' && acc.id === txn.transferAccountId) {
+          return {
+            ...acc,
+            balanceCents: acc.balanceCents - txn.amountCents,
+            transactionCount: Math.max(0, (acc.transactionCount ?? 1) - 1),
+          };
+        }
+        return acc;
+      })
+    );
+
+    addToast(`Transaction "${txn.payee || txn.categoryName || 'Entry'}" deleted`, 'info');
+
+    // 2. Background database sync
+    try {
+      await fetch(`/api/finance/transactions/${txn.id}`, { method: 'DELETE' });
+    } catch {
+      // offline/optimistic already applied
+    }
+  };
+
+  // Real-time Edit Transaction handler
+  const handleOpenEditTxn = (txn: FinanceTransactionData) => {
+    setEditingTxn(txn);
+    setEditTxnAmount((txn.amountCents / 100).toString());
+    setEditTxnPayee(txn.payee || '');
+    setEditTxnDate(txn.transactionDate);
+    setEditTxnCategoryId(txn.categoryId || '');
+    setEditTxnType(txn.type);
+    setIsEditTxnModalOpen(true);
+  };
+
+  const handleUpdateTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTxn) return;
+    const num = Number(editTxnAmount.trim());
+    if (!editTxnAmount.trim() || isNaN(num) || num <= 0) {
+      addToast('Amount must be a positive number', 'error');
+      return;
+    }
+
+    const newAmountCents = Math.round(num * 100);
+    const amountDelta = newAmountCents - editingTxn.amountCents;
+    const selectedCat = categories.find((c) => c.id === editTxnCategoryId);
+
+    const updatedTxn: FinanceTransactionData = {
+      ...editingTxn,
+      amountCents: newAmountCents,
+      payee: editTxnPayee.trim() || undefined,
+      transactionDate: editTxnDate,
+      categoryId: editTxnCategoryId || undefined,
+      categoryName: selectedCat?.name || editingTxn.categoryName,
+      type: editTxnType,
+      updatedAt: Date.now(),
+    };
+
+    // 1. Optimistic real-time UI state update
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === editingTxn.id ? updatedTxn : t))
+    );
+
+    if (amountDelta !== 0) {
+      setAccounts((prev) =>
+        prev.map((acc) => {
+          if (acc.id === editingTxn.accountId) {
+            const balanceDelta = editingTxn.type === 'income' ? amountDelta : -amountDelta;
+            return {
+              ...acc,
+              balanceCents: acc.balanceCents + balanceDelta,
+            };
+          }
+          return acc;
+        })
+      );
+    }
+
+    addToast('Transaction updated', 'success');
+    setIsEditTxnModalOpen(false);
+    setEditingTxn(null);
+
+    // 2. Background database sync
+    try {
+      await fetch(`/api/finance/transactions/${editingTxn.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amountCents: newAmountCents,
+          payee: editTxnPayee.trim() || undefined,
+          transactionDate: editTxnDate,
+          categoryId: editTxnCategoryId || undefined,
+        }),
+      });
+    } catch {
+      // offline/optimistic already applied
+    }
+  };
+
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     const errors: Record<string, string> = {};
@@ -747,6 +706,41 @@ export function FinanceView() {
     }
   };
 
+  const handleOpenCreateBudget = () => {
+    setEditingBudget(null);
+    setBudgetCatId('');
+    setBudgetAmount('');
+    setBudgetPeriod('monthly');
+    setBudgetErrors({});
+    setIsBudgetModalOpen(true);
+  };
+
+  const handleOpenEditBudget = (b: FinanceBudgetData) => {
+    setEditingBudget(b);
+    setBudgetCatId(b.categoryId);
+    setBudgetAmount((b.amountCents / 100).toString());
+    setBudgetPeriod(b.period);
+    setBudgetErrors({});
+    setIsBudgetModalOpen(true);
+  };
+
+  const confirmDeleteBudget = async () => {
+    if (!budgetToDelete) return;
+    const b = budgetToDelete;
+    try {
+      setIsDeletingBudget(true);
+      await fetch(`/api/finance/budgets/${b.id}`, { method: 'DELETE' }).catch(() => null);
+      setBudgets((prev) => prev.filter((item) => item.id !== b.id));
+      addToast('Budget envelope deleted', 'success');
+      setBudgetToDelete(null);
+      fetchFinanceData();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Error deleting budget', 'error');
+    } finally {
+      setIsDeletingBudget(false);
+    }
+  };
+
   const handleCreateBudget = async (e: React.FormEvent) => {
     e.preventDefault();
     const errors: Record<string, string> = {};
@@ -766,6 +760,39 @@ export function FinanceView() {
     try {
       setSubmitting(true);
       const amountCents = parseMoney(budgetAmount.trim(), 'USD');
+
+      if (editingBudget) {
+        await fetch(`/api/finance/budgets/${editingBudget.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amountCents,
+            period: budgetPeriod,
+          }),
+        }).catch(() => null);
+
+        setBudgets((prev) =>
+          prev.map((b) =>
+            b.id === editingBudget.id
+              ? {
+                  ...b,
+                  amountCents,
+                  period: budgetPeriod,
+                  remainingCents: Math.max(0, amountCents - b.spentCents),
+                  percentageUsed: amountCents > 0 ? Math.round((b.spentCents / amountCents) * 100) : 0,
+                  updatedAt: Date.now(),
+                }
+              : b
+          )
+        );
+        addToast('Budget updated', 'success');
+        setIsBudgetModalOpen(false);
+        setEditingBudget(null);
+        setBudgetAmount('');
+        fetchFinanceData();
+        return;
+      }
+
       const currentYM = new Date().toISOString().slice(0, 7);
       const res = await fetch('/api/finance/budgets', {
         method: 'POST',
@@ -814,6 +841,45 @@ export function FinanceView() {
     }
   };
 
+  const handleOpenCreateDebt = () => {
+    setEditingDebt(null);
+    setDebtName('');
+    setDebtCreditor('');
+    setDebtAmount('');
+    setDebtApr('18.5');
+    setDebtMinPayment('');
+    setDebtErrors({});
+    setIsDebtModalOpen(true);
+  };
+
+  const handleOpenEditDebt = (d: FinanceDebtData) => {
+    setEditingDebt(d);
+    setDebtName(d.name);
+    setDebtCreditor(d.creditor);
+    setDebtAmount((d.totalOwedCents / 100).toString());
+    setDebtApr((d.interestRateBps / 100).toString());
+    setDebtMinPayment(d.minimumPaymentCents ? (d.minimumPaymentCents / 100).toString() : '');
+    setDebtErrors({});
+    setIsDebtModalOpen(true);
+  };
+
+  const confirmDeleteDebt = async () => {
+    if (!debtToDelete) return;
+    const d = debtToDelete;
+    try {
+      setIsDeletingDebt(true);
+      await fetch(`/api/finance/debts/${d.id}`, { method: 'DELETE' }).catch(() => null);
+      setDebts((prev) => prev.filter((item) => item.id !== d.id));
+      addToast(`Debt "${d.name}" deleted`, 'success');
+      setDebtToDelete(null);
+      fetchFinanceData();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Error deleting debt', 'error');
+    } finally {
+      setIsDeletingDebt(false);
+    }
+  };
+
   const handleCreateDebt = async (e: React.FormEvent) => {
     e.preventDefault();
     const errors: Record<string, string> = {};
@@ -846,6 +912,42 @@ export function FinanceView() {
       const totalOwedCents = parseMoney(debtAmount.trim(), 'USD');
       const interestRateBps = Math.round(Number(debtApr || '0') * 100);
       const minPmtCents = debtMinPayment.trim() ? parseMoney(debtMinPayment.trim(), 'USD') : 0;
+
+      if (editingDebt) {
+        await fetch(`/api/finance/debts/${editingDebt.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: debtName.trim(),
+            creditor: debtCreditor.trim(),
+            totalOwedCents,
+            interestRateBps,
+            minimumPaymentCents: minPmtCents,
+          }),
+        }).catch(() => null);
+
+        setDebts((prev) =>
+          prev.map((d) =>
+            d.id === editingDebt.id
+              ? {
+                  ...d,
+                  name: debtName.trim(),
+                  creditor: debtCreditor.trim(),
+                  totalOwedCents,
+                  remainingBalanceCents: Math.max(0, totalOwedCents - d.totalPaidCents),
+                  interestRateBps,
+                  minimumPaymentCents: minPmtCents,
+                  updatedAt: Date.now(),
+                }
+              : d
+          )
+        );
+        addToast(`Debt "${debtName.trim()}" updated`, 'success');
+        setIsDebtModalOpen(false);
+        setEditingDebt(null);
+        fetchFinanceData();
+        return;
+      }
 
       const res = await fetch('/api/finance/debts', {
         method: 'POST',
@@ -968,27 +1070,96 @@ export function FinanceView() {
     }
   };
 
-  if (loading) {
-    return <LoadingState message="Connecting to atomic financial ledger..." />;
-  }
+  // ─── Reactive Dynamic Calculations Driven Directly by User Entries (Data Binding) ───
+  // Note: All hooks MUST execute unconditionally before any early returns to avoid React Hook order mismatch
+  const totalEntriesCount = transactions.length;
 
-  const netWorthCents = overview?.netWorth?.netWorthCents ?? 0;
-  const assetsCents = overview?.netWorth?.totalAssetsCents ?? 0;
-  const liabilitiesCents = overview?.netWorth?.totalLiabilitiesCents ?? 0;
-  const incomeCents = overview?.monthlyIncomeCents ?? 0;
-  const expenseCents = overview?.monthlyExpenseCents ?? 0;
-  const savingsRate = overview?.monthlySavingsRatePercentage ?? 0;
+  // Compute summary metrics dynamically via entries.reduce(...)
+  const derivedIncomeCents = useMemo(() => {
+    return transactions
+      .filter((t) => t.type === 'income')
+      .reduce((sum, t) => sum + t.amountCents, 0);
+  }, [transactions]);
+
+  const derivedExpenseCents = useMemo(() => {
+    return transactions
+      .filter((t) => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amountCents, 0);
+  }, [transactions]);
+
+  // Variance: Inflows minus Outflows
+  const derivedCashflowVarianceCents = derivedIncomeCents - derivedExpenseCents;
+
+  // Savings rate % dynamically calculated
+  const derivedSavingsRate = derivedIncomeCents > 0
+    ? Math.max(0, Math.round((derivedCashflowVarianceCents / derivedIncomeCents) * 100))
+    : 0;
+
+  // Assets dynamically reconciled from account entries
+  const derivedAssetsCents = useMemo(() => {
+    return accounts
+      .filter((a) => a.isAsset !== false && a.type !== 'credit' && a.type !== 'loan')
+      .reduce((sum, a) => sum + Math.max(0, a.balanceCents), 0);
+  }, [accounts]);
+
+  // Liabilities dynamically reconciled from credit accounts & debts
+  const derivedLiabilitiesCents = useMemo(() => {
+    const accLiab = accounts.reduce((sum, a) => {
+      if (a.isAsset === false || a.type === 'credit' || a.type === 'loan') {
+        return sum + Math.abs(a.balanceCents);
+      }
+      if (a.balanceCents < 0) {
+        return sum + Math.abs(a.balanceCents);
+      }
+      return sum;
+    }, 0);
+    const debtLiab = debts
+      .filter((d) => !d.isPaidOff)
+      .reduce((sum, d) => sum + (d.remainingBalanceCents || 0), 0);
+    return accLiab + debtLiab;
+  }, [accounts, debts]);
+
+  // Net Liquid Balance / Net Worth
+  const derivedNetWorthCents = derivedAssetsCents - derivedLiabilitiesCents;
+
+  // Active filters on journal entries
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((t) => {
+      const matchesType = txnFilterType === 'all' || t.type === txnFilterType;
+      const matchesCat = txnFilterCat === 'all' || t.categoryId === txnFilterCat;
+      const q = txnSearch.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        (t.payee && t.payee.toLowerCase().includes(q)) ||
+        (t.notes && t.notes.toLowerCase().includes(q)) ||
+        (t.categoryName && t.categoryName.toLowerCase().includes(q));
+      return matchesType && matchesCat && matchesSearch;
+    });
+  }, [transactions, txnFilterType, txnFilterCat, txnSearch]);
+
+  const filteredTotalAmount = useMemo(() => {
+    return filteredTransactions.reduce((sum, t) => sum + t.amountCents, 0);
+  }, [filteredTransactions]);
+
+  const activeFilterCount =
+    (txnFilterType !== 'all' ? 1 : 0) +
+    (txnFilterCat !== 'all' ? 1 : 0) +
+    (txnSearch.trim() !== '' ? 1 : 0);
 
   // KPI data for MobileTransactionSheet
   const selectedAccount = accounts.find((a) => a.id === txnAccountId);
   const activeCatBudget = budgets.find((b) => b.categoryId === txnCategoryId);
   const mobileSheetKpi: KPIData = {
-    todaySpentCents: expenseCents ?? 0,
+    todaySpentCents: derivedExpenseCents,
     categorySpendCents: activeCatBudget?.spentCents ?? 0,
     accountBalanceCents: selectedAccount?.balanceCents ?? 0,
     budgetUsedPercent: activeCatBudget?.percentageUsed ?? 0,
     currency: selectedAccount?.currency ?? 'INR',
   };
+
+  if (loading) {
+    return <LoadingState message="Connecting to atomic financial ledger..." />;
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12 animate-fade-up">
@@ -1036,7 +1207,7 @@ export function FinanceView() {
           </Button>
           <div className="h-4 w-px bg-border/80 mx-1 hidden sm:block" />
           <Button
-            onClick={() => setIsAccountModalOpen(true)}
+            onClick={handleOpenCreateAccount}
             variant="outline"
             size="sm"
             className="cursor-pointer text-xs rounded-xl shadow-xs"
@@ -1045,7 +1216,7 @@ export function FinanceView() {
             <span>Account</span>
           </Button>
           <Button
-            onClick={() => setIsBudgetModalOpen(true)}
+            onClick={handleOpenCreateBudget}
             variant="outline"
             size="sm"
             className="cursor-pointer text-xs rounded-xl shadow-xs"
@@ -1054,7 +1225,7 @@ export function FinanceView() {
             <span>Budget</span>
           </Button>
           <Button
-            onClick={() => setIsDebtModalOpen(true)}
+            onClick={handleOpenCreateDebt}
             variant="outline"
             size="sm"
             className="cursor-pointer text-xs rounded-xl shadow-xs"
@@ -1074,35 +1245,55 @@ export function FinanceView() {
         </div>
       </div>
 
-      {/* ─── Net Worth & Cashflow Telemetry Bento Grid ─── */}
+      {/* ─── Net Worth & Cashflow Telemetry Bento Grid (Strict 2x2 Mobile / 4-Col Grid) ─── */}
       <KpiGrid cols="4">
+        {/* KPI 1: Net Liquid Balance */}
         <KpiCard
           title="Total Net Liquid Balance"
-          value={safeFormatMoney(netWorthCents)}
-          subtitle={`Assets: ${safeFormatMoney(assetsCents)} • Liab: ${safeFormatMoney(liabilitiesCents)}`}
-          color="default"
+          value={safeFormatMoney(derivedNetWorthCents)}
+          subtitle={`Assets: ${safeFormatMoney(derivedAssetsCents)} • Liab: ${safeFormatMoney(derivedLiabilitiesCents)}`}
+          color={derivedNetWorthCents >= 0 ? 'default' : 'rose'}
+          trend={{
+            value: `${accounts.length} Accounts`,
+            isPositive: derivedNetWorthCents >= 0,
+          }}
         />
 
+        {/* KPI 2: Cash Inflows (Reactive Sum of Income Entries) */}
         <KpiCard
           title="Monthly Cash Inflow"
-          value={`+${safeFormatMoney(incomeCents)}`}
-          subtitle="Cash inflows recorded this cycle"
+          value={`+${safeFormatMoney(derivedIncomeCents)}`}
+          subtitle={`${transactions.filter((t) => t.type === 'income').length} credits • ${totalEntriesCount} total entries`}
           color="emerald"
+          trend={{
+            value: `${transactions.filter((t) => t.type === 'income').length} entries`,
+            isPositive: true,
+          }}
         />
 
+        {/* KPI 3: Cash Outflows (Reactive Sum of Expense Entries) */}
         <KpiCard
           title="Monthly Burn & Outflow"
-          value={`-${safeFormatMoney(expenseCents)}`}
-          subtitle="Total debits recorded this cycle"
+          value={`-${safeFormatMoney(derivedExpenseCents)}`}
+          subtitle={`${transactions.filter((t) => t.type === 'expense').length} debits logged`}
           color="rose"
+          trend={{
+            value: `${transactions.filter((t) => t.type === 'expense').length} entries`,
+            isPositive: false,
+          }}
         />
 
+        {/* KPI 4: Net Variance & Retention Rate */}
         <KpiCard
-          title="Savings Rate & Retention"
-          value={`${savingsRate}%`}
-          subtitle="Monthly cashflow retained"
-          color="primary"
-          progressBar={{ value: savingsRate }}
+          title="Net Variance & Rate"
+          value={`${derivedCashflowVarianceCents >= 0 ? '+' : ''}${safeFormatMoney(derivedCashflowVarianceCents)} (${derivedSavingsRate}%)`}
+          subtitle={
+            derivedCashflowVarianceCents >= 0
+              ? 'Net surplus cash retained'
+              : 'Deficit cash burn variance'
+          }
+          color={derivedCashflowVarianceCents >= 0 ? 'primary' : 'rose'}
+          progressBar={{ value: derivedSavingsRate }}
         />
       </KpiGrid>
 
@@ -1133,72 +1324,204 @@ export function FinanceView() {
       {/* Tabs Content */}
       {activeTab === 'overview' || activeTab === 'accounts' ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {accounts.map((acc) => (
-              <div
-                key={acc.id}
-                className="p-5 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm space-y-3 hover:border-primary/40 hover:shadow-md transition-all duration-200"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div
-                      className="w-3 h-3 rounded-full shrink-0 shadow-xs"
-                      style={{ backgroundColor: acc.color || '#3b82f6' }}
-                    />
-                    <span className="font-title-sm text-title-sm text-on-surface font-bold truncate">{acc.name}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="px-2 py-0.5 rounded bg-surface-container font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant font-mono">
-                      {acc.type}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setAccountToDelete(acc)}
-                      title="Delete account"
-                      aria-label={`Delete account ${acc.name}`}
-                      className="p-1.5 text-outline hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <IconTrash size={14} />
-                    </button>
-                  </div>
-                </div>
-                <div className="text-xl font-headline-md font-extrabold text-on-surface tracking-tight font-mono">
-                  {safeFormatMoney(acc.balanceCents, acc.currency)}
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-on-surface-variant border-t border-border/50 pt-2 font-mono">
-                  <span>Transactions: {acc.transactionCount ?? 0}</span>
-                  <span>{acc.currency}</span>
-                </div>
+          {accounts.length === 0 ? (
+            <div className="p-8 text-center bg-surface-container-lowest border border-dashed border-border/80 rounded-2xl space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center mx-auto text-on-surface-variant">
+                <IconCreditCard size={24} />
               </div>
-            ))}
-          </div>
+              <h3 className="font-title-sm text-base font-bold text-on-surface">No financial accounts yet</h3>
+              <p className="font-body-sm text-xs text-on-surface-variant max-w-sm mx-auto">
+                Add your checking, savings, credit cards, or cash vaults to begin logging atomic double-entry records.
+              </p>
+              <Button onClick={handleOpenCreateAccount} variant="primary" size="sm" className="mt-2">
+                <IconPlus size={14} className="mr-1.5" />
+                Add Your First Account
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {accounts.map((acc) => (
+                <div
+                  key={acc.id}
+                  className="p-5 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm space-y-3 hover:border-primary/40 hover:shadow-md transition-all duration-200"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className="w-3 h-3 rounded-full shrink-0 shadow-xs"
+                        style={{ backgroundColor: acc.color || '#3b82f6' }}
+                      />
+                      <span className="font-title-sm text-title-sm text-on-surface font-bold truncate">{acc.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="px-2 py-0.5 rounded bg-surface-container font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant font-mono">
+                        {acc.type}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditAccount(acc)}
+                        title="Edit account"
+                        aria-label={`Edit account ${acc.name}`}
+                        className="p-1.5 text-outline hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <IconEdit size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAccountToDelete(acc)}
+                        title="Delete account"
+                        aria-label={`Delete account ${acc.name}`}
+                        className="p-1.5 text-outline hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <IconTrash size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-xl font-headline-md font-extrabold text-on-surface tracking-tight font-mono">
+                    {safeFormatMoney(acc.balanceCents, acc.currency)}
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-on-surface-variant border-t border-border/50 pt-2 font-mono">
+                    <span>Transactions: {acc.transactionCount ?? 0}</span>
+                    <span>{acc.currency}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : null}
 
       {activeTab === 'transactions' && (
-        <div className="bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-border/60 bg-surface-container-low/40 font-bold font-title-sm text-on-surface flex items-center justify-between">
-            <span className="font-headline-md text-title-sm">Atomic Ledger Transactions</span>
-            <span className="font-label-caps text-label-caps text-outline font-mono">Integer cents precision</span>
+        <div className="bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm overflow-hidden space-y-3 p-4 sm:p-5">
+          {/* Header & Active Filters Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-headline-md text-base sm:text-lg font-bold text-on-surface">
+                  Atomic Ledger Transactions
+                </span>
+                <span className="font-label-caps text-xs px-2 py-0.5 rounded-full bg-secondary-container/40 text-secondary font-mono font-semibold">
+                  {transactions.length} Total Entries
+                </span>
+              </div>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                Dynamic ledger records with instant balance sync on Create, Update, and Delete.
+              </p>
+            </div>
+
+            {/* Filter Pill Controls */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Type Pills */}
+              <div className="flex items-center p-0.5 rounded-xl bg-surface-container-low border border-border/60 text-xs">
+                {(['all', 'expense', 'income', 'transfer'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTxnFilterType(t)}
+                    className={clsx(
+                      'px-2.5 py-1 rounded-lg font-semibold capitalize transition-all cursor-pointer touch-manipulation',
+                      txnFilterType === t
+                        ? 'bg-surface-container-highest text-on-surface shadow-xs font-bold'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    )}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
+              {/* Category Filter */}
+              <select
+                value={txnFilterCat}
+                onChange={(e) => setTxnFilterCat(e.target.value)}
+                className="px-2.5 py-1 rounded-xl text-xs bg-surface-container-low border border-border/60 text-on-surface focus:outline-none"
+              >
+                <option value="all">All Categories</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="divide-y divide-surface-container-low">
-            {transactions.length === 0 ? (
-              <div className="p-8 text-center text-xs text-muted-foreground">
-                No ledger transactions recorded yet.
+
+          {/* Search & Reactive Filter Summary Banner */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-container-low/50 p-3 rounded-xl border border-border/50 text-xs">
+            {/* Search Input */}
+            <div className="relative flex-1 sm:max-w-xs">
+              <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+              <input
+                type="text"
+                value={txnSearch}
+                onChange={(e) => setTxnSearch(e.target.value)}
+                placeholder="Search payee or notes..."
+                className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs bg-surface-container-lowest border border-border/60 text-on-surface placeholder:text-on-surface-variant focus:outline-none"
+              />
+            </div>
+
+            {/* Reactive Summary Statistics */}
+            <div className="flex items-center gap-3 font-mono text-[11px] text-on-surface-variant">
+              <span>
+                Matching:{' '}
+                <strong className="text-on-surface">{filteredTransactions.length}</strong> / {transactions.length}
+              </span>
+              <span>•</span>
+              <span>
+                Filtered Sum:{' '}
+                <strong className="text-primary font-bold">{safeFormatMoney(filteredTotalAmount)}</strong>
+              </span>
+              {activeFilterCount > 0 && (
+                <>
+                  <span>•</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTxnSearch('');
+                      setTxnFilterType('all');
+                      setTxnFilterCat('all');
+                    }}
+                    className="text-xs text-rose-500 hover:underline font-sans cursor-pointer"
+                  >
+                    Clear Filters ({activeFilterCount})
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Transaction Entries List */}
+          <div className="divide-y divide-surface-container-low border border-border/60 rounded-xl overflow-hidden bg-surface-container-lowest">
+            {filteredTransactions.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground space-y-1">
+                <p>No transactions match the selected filter criteria.</p>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTxnSearch('');
+                      setTxnFilterType('all');
+                      setTxnFilterCat('all');
+                    }}
+                    className="text-xs text-primary hover:underline font-semibold cursor-pointer"
+                  >
+                    Reset all filters
+                  </button>
+                )}
               </div>
             ) : (
-              transactions.map((txn) => {
+              filteredTransactions.map((txn) => {
                 const isIncome = txn.type === 'income';
                 const isTransfer = txn.type === 'transfer';
                 return (
                   <div
                     key={txn.id}
-                    className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors"
+                    className="p-3.5 sm:p-4 flex items-center justify-between hover:bg-muted/30 transition-colors gap-3"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div
                         className={clsx(
-                          'w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs',
+                          'w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0',
                           isTransfer
                             ? 'bg-blue-500/10 text-blue-500'
                             : isIncome
@@ -1208,42 +1531,67 @@ export function FinanceView() {
                       >
                         {isTransfer ? '⇄' : isIncome ? '↓' : '↑'}
                       </div>
-                      <div>
-                        <div className="text-xs font-bold text-foreground flex items-center gap-1.5 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-foreground flex items-center gap-1.5 flex-wrap truncate">
                           {(() => {
                             const catDetail = txn.categoryId ? categoryLookup.get(txn.categoryId) : null;
                             if (catDetail) {
                               return (
                                 <>
                                   {catDetail.parentName && (
-                                    <span className="text-foreground/50 text-[11px] font-medium">
+                                    <span className="text-foreground/50 text-[11px] font-medium truncate">
                                       {catDetail.parentIcon ? `${catDetail.parentIcon} ` : ''}{catDetail.parentName} ›
                                     </span>
                                   )}
-                                  <span>{catDetail.icon ? `${catDetail.icon} ` : ''}{catDetail.name}</span>
+                                  <span className="truncate">{catDetail.icon ? `${catDetail.icon} ` : ''}{catDetail.name}</span>
                                 </>
                               );
                             }
-                            return <span>{txn.categoryName || 'Uncategorized'}</span>;
+                            return <span className="truncate">{txn.categoryName || 'Uncategorized'}</span>;
                           })()}
                         </div>
-                        <div className="text-[11px] text-muted-foreground font-mono">
-                          {txn.transactionDate} {txn.notes && `• ${txn.notes}`}
+                        <div className="text-[11px] text-muted-foreground font-mono truncate">
+                          {txn.transactionDate} {txn.payee && `• ${txn.payee}`} {txn.notes && `(${txn.notes})`}
                         </div>
                       </div>
                     </div>
-                    <div
-                      className={clsx(
-                        'text-sm font-bold font-mono',
-                        isTransfer
-                          ? 'text-blue-500'
-                          : isIncome
-                          ? 'text-emerald-500'
-                          : 'text-rose-500'
-                      )}
-                    >
-                      {isTransfer ? '⇄ ' : isIncome ? '+' : '-'}
-                      {safeFormatMoney(txn.amountCents)}
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div
+                        className={clsx(
+                          'text-sm font-bold font-mono whitespace-nowrap',
+                          isTransfer
+                            ? 'text-blue-500'
+                            : isIncome
+                            ? 'text-emerald-500'
+                            : 'text-rose-500'
+                        )}
+                      >
+                        {isTransfer ? '⇄ ' : isIncome ? '+' : '-'}
+                        {safeFormatMoney(txn.amountCents)}
+                      </div>
+
+                      {/* Action buttons (Edit & Delete) with instant sync */}
+                      <div className="flex items-center gap-1 pl-2 border-l border-border/50">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditTxn(txn)}
+                          className="p-1.5 rounded-lg text-foreground/60 hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                          title="Edit transaction"
+                          aria-label="Edit transaction"
+                        >
+                          <IconEdit size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTransaction(txn)}
+                          className="p-1.5 rounded-lg text-rose-500/70 hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                          title="Delete transaction"
+                          aria-label="Delete transaction"
+                        >
+                          <IconTrash size={13} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1256,15 +1604,38 @@ export function FinanceView() {
       {activeTab === 'budgets' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {budgets.length === 0 ? (
-            <div className="col-span-full p-8 text-center bg-surface-container-lowest border border-dashed border-border/80 rounded-2xl text-xs text-on-surface-variant font-mono">
-              No envelope budgets defined for this calendar month.
+            <div className="col-span-full p-8 text-center bg-surface-container-lowest border border-dashed border-border/80 rounded-2xl text-xs text-on-surface-variant font-mono space-y-3">
+              <p>No envelope budgets defined for this calendar month.</p>
+              <Button onClick={handleOpenCreateBudget} variant="primary" size="sm" className="cursor-pointer rounded-xl">
+                <IconPlus size={14} className="mr-1" /> Create Budget
+              </Button>
             </div>
           ) : (
             budgets.map((b) => (
-              <div key={b.id} className="p-5 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm space-y-2">
+              <div key={b.id} className="p-5 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm space-y-2 hover:border-primary/40 hover:shadow-md transition-all duration-200">
                 <div className="flex items-center justify-between text-xs font-bold text-on-surface">
-                  <span className="font-title-sm text-title-sm">Category Envelope</span>
-                  <span className="font-mono text-outline">{b.yearMonth}</span>
+                  <span className="font-title-sm text-title-sm truncate mr-2">{b.categoryName || 'Category Envelope'}</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="font-mono text-outline px-1.5 py-0.5 rounded bg-surface-container text-[11px]">{b.yearMonth}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditBudget(b)}
+                      title="Edit budget"
+                      aria-label="Edit budget"
+                      className="p-1.5 text-outline hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <IconEdit size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBudgetToDelete(b)}
+                      title="Delete budget"
+                      aria-label="Delete budget"
+                      className="p-1.5 text-outline hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <IconTrash size={14} />
+                    </button>
+                  </div>
                 </div>
                 <div className="text-lg font-headline-md font-extrabold text-on-surface font-mono">
                   Budget: {safeFormatMoney(b.amountCents)}
@@ -1291,22 +1662,45 @@ export function FinanceView() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {debts.length === 0 ? (
-              <div className="col-span-full p-8 text-center bg-surface-container-lowest border border-dashed border-border/80 rounded-2xl text-xs text-on-surface-variant font-mono">
-                No debts or loans tracked. Clean slate!
+              <div className="col-span-full p-8 text-center bg-surface-container-lowest border border-dashed border-border/80 rounded-2xl text-xs text-on-surface-variant font-mono space-y-3">
+                <p>No debts or loans tracked. Clean slate!</p>
+                <Button onClick={handleOpenCreateDebt} variant="primary" size="sm" className="cursor-pointer rounded-xl">
+                  <IconPlus size={14} className="mr-1" /> Log Debt
+                </Button>
               </div>
             ) : (
               debts.map((d) => (
-                <div key={d.id} className="p-5 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm space-y-3">
+                <div key={d.id} className="p-5 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm space-y-3 hover:border-primary/40 hover:shadow-md transition-all duration-200">
                   <div className="flex items-center justify-between">
-                    <span className="font-title-sm text-title-sm font-bold text-on-surface truncate">{d.name}</span>
-                    <span
-                      className={clsx(
-                        'text-[10px] px-2 py-0.5 rounded-lg font-semibold uppercase font-mono',
-                        d.isPaidOff ? 'bg-secondary-container/50 text-secondary' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                      )}
-                    >
-                      {d.isPaidOff ? 'Paid Off' : 'Active Debt'}
-                    </span>
+                    <span className="font-title-sm text-title-sm font-bold text-on-surface truncate mr-2">{d.name}</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={clsx(
+                          'text-[10px] px-2 py-0.5 rounded-lg font-semibold uppercase font-mono',
+                          d.isPaidOff ? 'bg-secondary-container/50 text-secondary' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                        )}
+                      >
+                        {d.isPaidOff ? 'Paid Off' : 'Active Debt'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditDebt(d)}
+                        title="Edit debt"
+                        aria-label={`Edit debt ${d.name}`}
+                        className="p-1.5 text-outline hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <IconEdit size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDebtToDelete(d)}
+                        title="Delete debt"
+                        aria-label={`Delete debt ${d.name}`}
+                        className="p-1.5 text-outline hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <IconTrash size={14} />
+                      </button>
+                    </div>
                   </div>
                   <div className="text-xl font-headline-md font-extrabold text-on-surface font-mono">
                     Owed: {safeFormatMoney(d.totalOwedCents)}
@@ -1336,11 +1730,14 @@ export function FinanceView() {
         </div>
       )}
 
-      {/* New Account Modal */}
+      {/* Account Modal (Create or Edit) */}
       <Modal
         isOpen={isAccountModalOpen}
-        onClose={() => setIsAccountModalOpen(false)}
-        title="Create Financial Account"
+        onClose={() => {
+          setIsAccountModalOpen(false);
+          setEditingAccount(null);
+        }}
+        title={editingAccount ? 'Edit Financial Account' : 'Create Financial Account'}
         size="md"
       >
         <form onSubmit={handleCreateAccount} className="space-y-4">
@@ -1395,23 +1792,28 @@ export function FinanceView() {
             </div>
           </div>
 
-          <Input
-            label="Initial Balance"
-            value={accBalance}
-            onChange={(e) => {
-              setAccBalance(e.target.value);
-              if (accErrors.balance) setAccErrors((prev) => ({ ...prev, balance: '' }));
-            }}
-            error={accErrors.balance}
-            placeholder="0.00"
-            className="font-mono"
-          />
+          {!editingAccount && (
+            <Input
+              label="Initial Balance"
+              value={accBalance}
+              onChange={(e) => {
+                setAccBalance(e.target.value);
+                if (accErrors.balance) setAccErrors((prev) => ({ ...prev, balance: '' }));
+              }}
+              error={accErrors.balance}
+              placeholder="0.00"
+              className="font-mono"
+            />
+          )}
 
           <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-border/60">
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setIsAccountModalOpen(false)}
+              onClick={() => {
+                setIsAccountModalOpen(false);
+                setEditingAccount(null);
+              }}
               disabled={submitting}
               size="sm"
               className="flex-1 sm:flex-initial"
@@ -1419,7 +1821,7 @@ export function FinanceView() {
               Cancel
             </Button>
             <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              Create Account
+              {editingAccount ? 'Save Changes' : 'Create Account'}
             </Button>
           </div>
         </form>
@@ -1648,11 +2050,14 @@ export function FinanceView() {
         </form>
       </Modal>
 
-      {/* New Budget Modal */}
+      {/* Budget Modal (Create or Edit) */}
       <Modal
         isOpen={isBudgetModalOpen}
-        onClose={() => setIsBudgetModalOpen(false)}
-        title="Create Envelope Budget"
+        onClose={() => {
+          setIsBudgetModalOpen(false);
+          setEditingBudget(null);
+        }}
+        title={editingBudget ? 'Edit Envelope Budget' : 'Create Envelope Budget'}
         size="md"
       >
         <form onSubmit={handleCreateBudget} className="space-y-4">
@@ -1712,7 +2117,10 @@ export function FinanceView() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setIsBudgetModalOpen(false)}
+              onClick={() => {
+                setIsBudgetModalOpen(false);
+                setEditingBudget(null);
+              }}
               disabled={submitting}
               size="sm"
               className="flex-1 sm:flex-initial"
@@ -1720,17 +2128,20 @@ export function FinanceView() {
               Cancel
             </Button>
             <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              Save Budget
+              {editingBudget ? 'Update Budget' : 'Save Budget'}
             </Button>
           </div>
         </form>
       </Modal>
 
-      {/* New Debt Modal */}
+      {/* Debt Modal (Create or Edit) */}
       <Modal
         isOpen={isDebtModalOpen}
-        onClose={() => setIsDebtModalOpen(false)}
-        title="Log Debt or Loan"
+        onClose={() => {
+          setIsDebtModalOpen(false);
+          setEditingDebt(null);
+        }}
+        title={editingDebt ? 'Edit Debt or Loan' : 'Log Debt or Loan'}
         size="md"
       >
         <form onSubmit={handleCreateDebt} className="space-y-4">
@@ -1793,7 +2204,10 @@ export function FinanceView() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setIsDebtModalOpen(false)}
+              onClick={() => {
+                setIsDebtModalOpen(false);
+                setEditingDebt(null);
+              }}
               disabled={submitting}
               size="sm"
               className="flex-1 sm:flex-initial"
@@ -1801,7 +2215,7 @@ export function FinanceView() {
               Cancel
             </Button>
             <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              Save Debt
+              {editingDebt ? 'Update Debt' : 'Save Debt'}
             </Button>
           </div>
         </form>
@@ -1918,6 +2332,121 @@ export function FinanceView() {
         confirmLabel="Delete Account"
         variant="destructive"
       />
+
+      {/* Confirmation Modal for Budget Deletion */}
+      <ConfirmationModal
+        isOpen={Boolean(budgetToDelete)}
+        onClose={() => setBudgetToDelete(null)}
+        onConfirm={confirmDeleteBudget}
+        isLoading={isDeletingBudget}
+        title="Delete Envelope Budget"
+        description={`Are you sure you want to delete the budget envelope for "${budgetToDelete?.categoryName || 'this category'}"?`}
+        confirmLabel="Delete Budget"
+        variant="destructive"
+      />
+
+      {/* Confirmation Modal for Debt Deletion */}
+      <ConfirmationModal
+        isOpen={Boolean(debtToDelete)}
+        onClose={() => setDebtToDelete(null)}
+        onConfirm={confirmDeleteDebt}
+        isLoading={isDeletingDebt}
+        title="Delete Debt Record"
+        description={`Are you sure you want to delete "${debtToDelete?.name}"? All associated payoff records and tracking history will be permanently removed.`}
+        confirmLabel="Delete Debt"
+        variant="destructive"
+      />
+
+      {/* Edit Transaction Modal with Instant Real-Time Sync */}
+      <Modal
+        isOpen={isEditTxnModalOpen}
+        onClose={() => {
+          setIsEditTxnModalOpen(false);
+          setEditingTxn(null);
+        }}
+        title="Edit Ledger Transaction"
+        description="Updates transaction details and dynamically syncs account balance and 2x2 KPI metrics."
+        size="md"
+      >
+        <form onSubmit={handleUpdateTransaction} className="space-y-4 pt-1">
+          <div>
+            <label className="block text-xs font-semibold text-foreground/80 mb-1">
+              Payee / Entity
+            </label>
+            <Input
+              value={editTxnPayee}
+              onChange={(e) => setEditTxnPayee(e.target.value)}
+              placeholder="e.g. AWS Cloud, Whole Foods"
+              className="text-xs"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-foreground/80 mb-1">
+                Amount (₹ / USD)
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={editTxnAmount}
+                onChange={(e) => setEditTxnAmount(e.target.value)}
+                required
+                className="text-xs font-mono font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-foreground/80 mb-1">
+                Transaction Date
+              </label>
+              <Input
+                type="date"
+                value={editTxnDate}
+                onChange={(e) => setEditTxnDate(e.target.value)}
+                required
+                className="text-xs font-mono"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-foreground/80 mb-1">
+              Category
+            </label>
+            <select
+              value={editTxnCategoryId}
+              onChange={(e) => setEditTxnCategoryId(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-xs bg-muted/50 border border-border/80 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="">Uncategorized</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setIsEditTxnModalOpen(false);
+                setEditingTxn(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm">
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* CSV Bulk Data Import Modal with Zero-Click Instant Upload */}
       <FinanceCsvImportModal

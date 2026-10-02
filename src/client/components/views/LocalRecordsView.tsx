@@ -18,8 +18,11 @@ import {
   IconTable,
   IconChevronLeft,
   IconChevronRight,
+  IconPlus,
+  IconEdit,
+  IconCheck,
 } from '../ui/Icons';
-import { downloadMockCsvFile, type LocalRecordCategory } from '../../utils/mockData';
+import { downloadMockCsvFile, type LocalRecordCategory, type LocalRecord } from '../../utils/mockData';
 import { useToast } from '../ui/Toast';
 
 const CATEGORY_COLORS: Record<LocalRecordCategory, 'indigo' | 'purple' | 'amber' | 'emerald' | 'cyan' | 'default'> = {
@@ -45,7 +48,15 @@ const PAGE_SIZE = 6;
 
 export function LocalRecordsView() {
   const { addToast } = useToast();
-  const { records, clear, resetToDefault } = useLocalRecordStore();
+  const {
+    records,
+    clear,
+    resetToDefault,
+    addRecord,
+    updateRecord,
+    deleteRecord,
+    sessionMutations,
+  } = useLocalRecordStore();
 
   // Search & Filter State
   const [search, setSearch] = useState('');
@@ -58,12 +69,18 @@ export function LocalRecordsView() {
   // Import Modal State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
+  // Create & Edit Modal State
+  const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<LocalRecord | null>(null);
+  const [formTitle, setFormTitle] = useState('');
+  const [formCategory, setFormCategory] = useState<LocalRecordCategory>('engineering');
+  const [formContent, setFormContent] = useState('');
+
   // CSV Import mutation pipeline
   const { importCsvAsync } = useImportCsv({
     isLocalDev: true,
     onSuccess: (res) => {
       addToast(`Successfully imported ${res.count} records into browser memory!`, 'success');
-      // Auto-close modal upon successful zero-click import
       setTimeout(() => {
         setIsImportModalOpen(false);
       }, 350);
@@ -99,13 +116,87 @@ export function LocalRecordsView() {
     setCurrentPage(1);
   }, [search, selectedCat]);
 
-  // Pagination calculations (strictly limited to PAGE_SIZE items per page to prevent Y-scrolling)
+  // Pagination calculations
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
   const safePage = Math.min(Math.max(1, currentPage), totalPages);
   const paginatedRecords = useMemo(() => {
     const startIdx = (safePage - 1) * PAGE_SIZE;
     return filteredRecords.slice(startIdx, startIdx + PAGE_SIZE);
   }, [filteredRecords, safePage]);
+
+  // ─── Dynamic Reactive Summary Metrics ───
+  const totalCount = records.length;
+  const matchCount = filteredRecords.length;
+  const matchPercentage = totalCount > 0 ? Math.round((matchCount / totalCount) * 100) : 0;
+  const hasActiveFilters = selectedCat !== 'all' || search.trim() !== '';
+
+  const topCategory = useMemo(() => {
+    let topCat: LocalRecordCategory = 'engineering';
+    let max = -1;
+    for (const [cat, cnt] of Object.entries(categoryCounts)) {
+      if (cat !== 'all' && cnt > max) {
+        max = cnt;
+        topCat = cat as LocalRecordCategory;
+      }
+    }
+    return { name: topCat, count: Math.max(0, max) };
+  }, [categoryCounts]);
+
+  const activeCategoryPercentage = totalCount > 0 ? Math.round((topCategory.count / totalCount) * 100) : 0;
+  const totalOps =
+    (sessionMutations?.created || 0) +
+    (sessionMutations?.updated || 0) +
+    (sessionMutations?.deleted || 0);
+
+  // Modal Handlers
+  const handleOpenCreateModal = () => {
+    setEditingRecord(null);
+    setFormTitle('');
+    setFormCategory('engineering');
+    setFormContent('');
+    setIsEntryModalOpen(true);
+  };
+
+  const handleOpenEditModal = (rec: LocalRecord) => {
+    setEditingRecord(rec);
+    setFormTitle(rec.title);
+    setFormCategory(rec.category);
+    setFormContent(rec.content);
+    setIsEntryModalOpen(true);
+  };
+
+  const handleSaveEntry = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formTitle.trim() || !formContent.trim()) {
+      addToast('Title and content are required', 'error');
+      return;
+    }
+
+    if (editingRecord) {
+      updateRecord(editingRecord.id, {
+        title: formTitle.trim(),
+        category: formCategory,
+        content: formContent.trim(),
+      });
+      addToast(`Updated record "${formTitle.trim()}"`, 'success');
+    } else {
+      const newRec: LocalRecord = {
+        id: `rec_${Date.now()}`,
+        title: formTitle.trim(),
+        category: formCategory,
+        content: formContent.trim(),
+        createdAt: new Date().toISOString().slice(0, 10),
+      };
+      addRecord(newRec);
+      addToast(`Created record "${formTitle.trim()}"`, 'success');
+    }
+    setIsEntryModalOpen(false);
+  };
+
+  const handleDeleteEntry = (rec: LocalRecord) => {
+    deleteRecord(rec.id);
+    addToast(`Deleted record "${rec.title}"`, 'info');
+  };
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-6">
@@ -127,6 +218,17 @@ export function LocalRecordsView() {
 
         {/* Action Buttons Toolbar */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* New Entry Action Button */}
+          <Button
+            onClick={handleOpenCreateModal}
+            variant="outline"
+            size="sm"
+            className="font-bold shadow-xs flex items-center gap-1.5"
+          >
+            <IconPlus size={14} />
+            <span>New Entry</span>
+          </Button>
+
           {/* REQUIREMENT 2: Compact Import CSV Action Button */}
           <Button
             onClick={() => setIsImportModalOpen(true)}
@@ -186,37 +288,55 @@ export function LocalRecordsView() {
 
       {/* REQUIREMENT 1: Strict 2x2 KPI Cards Grid (Mobile/Tablet 2-col, Desktop 4-col, Compact p-3.5) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* KPI 1: Total Records Count */}
         <KpiCard
           title="Total Records"
-          value={records.length}
+          value={totalCount}
           subtitle="In-memory browser session"
           color="primary"
           className="p-3.5 sm:p-3.5"
-          trend={{ value: `${records.length} items`, isPositive: true }}
+          trend={{ value: `${totalCount} items`, isPositive: true }}
         />
 
+        {/* KPI 2: Active Filters Match */}
         <KpiCard
-          title="Engineering & Ops"
-          value={(categoryCounts['engineering'] || 0) + (categoryCounts['operations'] || 0)}
-          subtitle="System & architecture specs"
+          title="Active Filters Match"
+          value={`${matchCount} Items`}
+          subtitle={
+            hasActiveFilters
+              ? `Filtered: ${selectedCat !== 'all' ? selectedCat : 'query'} (${matchPercentage}%)`
+              : 'All entries currently match'
+          }
           color="indigo"
           className="p-3.5 sm:p-3.5"
+          trend={{
+            value: `${matchPercentage}%`,
+            isPositive: matchCount > 0,
+            label: 'match rate',
+          }}
         />
 
+        {/* KPI 3: Category Weight & Variance */}
         <KpiCard
-          title="Design & Product"
-          value={(categoryCounts['design'] || 0) + (categoryCounts['product'] || 0)}
-          subtitle="UI/UX & feature specs"
+          title="Top Domain Share"
+          value={`${topCategory.name.toUpperCase()} (${topCategory.count})`}
+          subtitle={`${Object.keys(categoryCounts).length - 1} categories active`}
           color="violet"
           className="p-3.5 sm:p-3.5"
+          progressBar={{ value: activeCategoryPercentage }}
         />
 
+        {/* KPI 4: Live Real-Time Mutations */}
         <KpiCard
-          title="Database Writes"
-          value="0 Writes"
-          subtitle="Isolated from Cloudflare D1"
+          title="Real-Time Sync Ops"
+          value={`${totalOps} Operations`}
+          subtitle={`+${sessionMutations.created} Add • ~${sessionMutations.updated} Edit • -${sessionMutations.deleted} Del`}
           color="emerald"
           className="p-3.5 sm:p-3.5"
+          trend={{
+            value: totalOps > 0 ? 'Live Sync' : 'Ready',
+            isPositive: true,
+          }}
         />
       </div>
 
@@ -329,6 +449,7 @@ export function LocalRecordsView() {
                       <th className="py-2.5 px-3.5">Title</th>
                       <th className="py-2.5 px-3.5 hidden md:table-cell">Content / Summary</th>
                       <th className="py-2.5 px-3.5">Created</th>
+                      <th className="py-2.5 px-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
@@ -354,6 +475,28 @@ export function LocalRecordsView() {
                         </td>
                         <td className="py-2.5 px-3.5 font-mono text-foreground/50 text-[11px] whitespace-nowrap">
                           {rec.createdAt}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(rec)}
+                              className="p-1 rounded-lg text-foreground/60 hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                              title="Edit record"
+                              aria-label={`Edit ${rec.title}`}
+                            >
+                              <IconEdit size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEntry(rec)}
+                              className="p-1 rounded-lg text-rose-500/70 hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                              title="Delete record"
+                              aria-label={`Delete ${rec.title}`}
+                            >
+                              <IconTrash size={13} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -391,7 +534,26 @@ export function LocalRecordsView() {
 
                   <div className="pt-2 border-t border-border/40 flex items-center justify-between text-[10px] font-mono text-foreground/50">
                     <span className="text-primary font-semibold">{rec.id}</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">In-Memory</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(rec)}
+                        className="p-1 rounded-lg text-foreground/60 hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                        title="Edit record"
+                        aria-label={`Edit ${rec.title}`}
+                      >
+                        <IconEdit size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEntry(rec)}
+                        className="p-1 rounded-lg text-rose-500/70 hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                        title="Delete record"
+                        aria-label={`Delete ${rec.title}`}
+                      >
+                        <IconTrash size={12} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -442,6 +604,76 @@ export function LocalRecordsView() {
           </div>
         </div>
       </div>
+
+      {/* Create / Edit Record Modal */}
+      <Modal
+        isOpen={isEntryModalOpen}
+        onClose={() => setIsEntryModalOpen(false)}
+        title={editingRecord ? 'Edit In-Memory Record' : 'Create New In-Memory Record'}
+        description="Immediately updates active entity state and syncs 2x2 KPI metrics in real-time."
+        size="md"
+      >
+        <form onSubmit={handleSaveEntry} className="space-y-4 pt-1">
+          <div>
+            <label className="block text-xs font-semibold text-foreground/80 mb-1">
+              Title
+            </label>
+            <Input
+              value={formTitle}
+              onChange={(e) => setFormTitle(e.target.value)}
+              placeholder="e.g. Optimize KV Session Cache Latency"
+              required
+              className="text-xs"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-foreground/80 mb-1">
+              Category
+            </label>
+            <select
+              value={formCategory}
+              onChange={(e) => setFormCategory(e.target.value as LocalRecordCategory)}
+              className="w-full px-3 py-2 rounded-xl text-xs bg-muted/50 border border-border/80 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="engineering">Engineering</option>
+              <option value="design">Design</option>
+              <option value="marketing">Marketing</option>
+              <option value="support">Support</option>
+              <option value="operations">Operations</option>
+              <option value="product">Product</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-foreground/80 mb-1">
+              Content & Specs
+            </label>
+            <textarea
+              value={formContent}
+              onChange={(e) => setFormContent(e.target.value)}
+              placeholder="Enter comprehensive implementation details or description..."
+              rows={3}
+              required
+              className="w-full px-3 py-2 rounded-xl text-xs bg-muted/50 border border-border/80 text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsEntryModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm">
+              {editingRecord ? 'Save Changes' : 'Create Record'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* REQUIREMENT 2: Animated Accessible Modal for Drag-and-Drop CSV Dropzone */}
       <Modal

@@ -112,33 +112,35 @@ export function AuthView() {
           </div>
         </div>
 
-        {/* Prominent Instant Local Mock Mode Button */}
-        <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-center space-y-2">
-          <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Local In-Memory Mock Mode Active</span>
+        {/* Local Mock Mode Button (Development Only) */}
+        {import.meta.env.DEV && (
+          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-center space-y-2">
+            <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Local In-Memory Mock Mode Active</span>
+            </div>
+            <p className="text-[11px] text-foreground/60 leading-normal">
+              60+ realistic dummy records preloaded. Zero backend/D1 writes. Instant preview.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setUser({
+                  id: 'usr_mock_dev',
+                  email: 'admin@lifeos.local',
+                  name: 'Local Dev User',
+                  role: 'admin',
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                });
+                toast('⚡ Entered Local Mock Mode! 60 dummy records loaded.', 'success');
+              }}
+              className="w-full py-2 px-3 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:brightness-105 active:scale-95 transition-all shadow-xs flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer"
+            >
+              <span>⚡ Enter App with 60+ Dummy Records Loaded</span>
+            </button>
           </div>
-          <p className="text-[11px] text-foreground/60 leading-normal">
-            60+ realistic dummy records preloaded. Zero backend/D1 writes. Instant preview.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setUser({
-                id: 'usr_mock_dev',
-                email: 'admin@lifeos.local',
-                name: 'Local Dev User',
-                role: 'admin',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              });
-              toast('⚡ Entered Local Mock Mode! 60 dummy records loaded.', 'success');
-            }}
-            className="w-full py-2 px-3 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:brightness-105 active:scale-95 transition-all shadow-xs flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer"
-          >
-            <span>⚡ Enter App with 60+ Dummy Records Loaded</span>
-          </button>
-        </div>
+        )}
 
         {!setupRequired && (
           <div className="flex neo-inset rounded-xl p-1">
@@ -256,26 +258,28 @@ export function AuthView() {
               : 'Sign In'}
           </Button>
 
-          {/* Quick Local Mock Mode Demo Button */}
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => {
-                setUser({
-                  id: 'usr_mock_dev',
-                  email: 'admin@lifeos.local',
-                  name: 'Local Dev User',
-                  role: 'admin',
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                });
-                toast('Logged in to Local Mock Mode! Zero D1 writes.', 'success');
-              }}
-              className="w-full py-2.5 px-3 rounded-xl border border-primary/30 bg-primary/10 hover:bg-primary/15 text-primary text-xs font-bold transition-all flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer"
-            >
-              <span>⚡ Enter Local Mock Mode (Instant Demo)</span>
-            </button>
-          </div>
+          {/* Quick Local Mock Mode Demo Button (Development Only) */}
+          {import.meta.env.DEV && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setUser({
+                    id: 'usr_mock_dev',
+                    email: 'admin@lifeos.local',
+                    name: 'Local Dev User',
+                    role: 'admin',
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                  });
+                  toast('Logged in to Local Mock Mode! Zero D1 writes.', 'success');
+                }}
+                className="w-full py-2.5 px-3 rounded-xl border border-primary/30 bg-primary/10 hover:bg-primary/15 text-primary text-xs font-bold transition-all flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer"
+              >
+                <span>⚡ Enter Local Mock Mode (Instant Demo)</span>
+              </button>
+            </div>
+          )}
         </form>
 
         <footer className="text-center text-[11px] text-foreground/40 pt-4 border-t border-border/60 flex items-center justify-center gap-1.5">

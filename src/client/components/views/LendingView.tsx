@@ -19,6 +19,8 @@ import {
   IconFileText,
   IconHistory,
   IconPlus,
+  IconTrash,
+  IconEdit,
 } from '../ui/Icons';
 
 export interface LendingLedgerEntry {
@@ -54,127 +56,6 @@ interface LendingViewProps {
   onNavigate?: (view: string) => void;
 }
 
-const INITIAL_LEDGER_ENTRIES: LendingLedgerEntry[] = [
-  {
-    id: 'tx-1',
-    date: '2024-10-01',
-    counterparty: 'Amit Sharma',
-    counterpartyInitials: 'AS',
-    category: 'personal_loan',
-    categoryLabel: 'Emergency Loan',
-    channel: 'UPI / GPay',
-    amountCents: 5000000,
-    totalPrincipalCents: 5000000,
-    paidCents: 2500000,
-    status: 'partial',
-    dueDate: '2024-10-03',
-  },
-  {
-    id: 'tx-2',
-    date: '2024-09-28',
-    counterparty: 'Design Contractor Studio',
-    counterpartyInitials: 'DC',
-    category: 'vendor_payout',
-    categoryLabel: 'SaaS Milestone #2',
-    channel: 'NEFT / Wire',
-    amountCents: 8500000,
-    totalPrincipalCents: 8500000,
-    paidCents: 8500000,
-    status: 'settled',
-  },
-  {
-    id: 'tx-3',
-    date: '2024-09-24',
-    counterparty: 'Rahul Verma',
-    counterpartyInitials: 'RV',
-    category: 'personal_loan',
-    categoryLabel: 'Colleague Hardware Share',
-    channel: 'Cash Payout',
-    amountCents: 1500000,
-    totalPrincipalCents: 1500000,
-    paidCents: 0,
-    status: 'overdue',
-    overdueDays: 4,
-    dueDate: '2024-09-20',
-  },
-  {
-    id: 'tx-4',
-    date: '2024-09-19',
-    counterparty: 'Priya Patel',
-    counterpartyInitials: 'PP',
-    category: 'family',
-    categoryLabel: 'Family Pool Share',
-    channel: 'Direct NetBanking',
-    amountCents: 1000000,
-    totalPrincipalCents: 3200000,
-    paidCents: 1000000,
-    status: 'partial',
-    dueDate: '2024-10-15',
-  },
-  {
-    id: 'tx-5',
-    date: '2024-09-15',
-    counterparty: 'Cloud Hosting Co.',
-    counterpartyInitials: 'CH',
-    category: 'vendor_payout',
-    categoryLabel: 'Vendor Invoice #9021',
-    channel: 'Card',
-    amountCents: 840000,
-    totalPrincipalCents: 840000,
-    paidCents: 0,
-    status: 'pending',
-    dueDate: '2024-10-05',
-  },
-];
-
-const INITIAL_COUNTERPARTIES: CounterpartyProfile[] = [
-  {
-    id: 'cp-1',
-    name: 'Amit Sharma',
-    initials: 'AS',
-    role: 'Friend / Peer',
-    type: 'receivable',
-    lentCents: 5000000,
-    returnedCents: 2500000,
-    balanceCents: 2500000,
-    statusBadge: 'Due Oct 2',
-  },
-  {
-    id: 'cp-2',
-    name: 'Design Contractor',
-    initials: 'DC',
-    role: 'Payee / Studio',
-    type: 'settled',
-    lentCents: 8500000,
-    returnedCents: 8500000,
-    balanceCents: 0,
-    statusBadge: 'Settled',
-  },
-  {
-    id: 'cp-3',
-    name: 'Rahul Verma',
-    initials: 'RV',
-    role: 'Colleague',
-    type: 'receivable',
-    lentCents: 1500000,
-    returnedCents: 0,
-    balanceCents: 1500000,
-    statusBadge: 'Overdue +4d',
-    isOverdue: true,
-  },
-  {
-    id: 'cp-4',
-    name: 'Priya Patel',
-    initials: 'PP',
-    role: 'Family / Borrowed',
-    type: 'payable',
-    lentCents: 3200000,
-    returnedCents: 1000000,
-    balanceCents: 2200000,
-    statusBadge: 'To Pay',
-  },
-];
-
 function formatRupee(minorUnits: number): string {
   const whole = Math.round(minorUnits / 100);
   return '₹' + whole.toLocaleString('en-IN');
@@ -183,8 +64,8 @@ function formatRupee(minorUnits: number): string {
 export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
   const { toast } = useToast();
 
-  const [ledgerEntries, setLedgerEntries] = useState<LendingLedgerEntry[]>(INITIAL_LEDGER_ENTRIES);
-  const [counterparties, setCounterparties] = useState<CounterpartyProfile[]>(INITIAL_COUNTERPARTIES);
+  const [ledgerEntries, setLedgerEntries] = useState<LendingLedgerEntry[]>([]);
+  const [counterparties, setCounterparties] = useState<CounterpartyProfile[]>([]);
   const [filterPill, setFilterPill] = useState<'all' | 'vendor' | 'personal' | 'settled' | 'pending'>('all');
 
   // Express Input State
@@ -194,22 +75,23 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
 
   // Modal State
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
-  const [selectedPayeeId, setSelectedPayeeId] = useState(INITIAL_COUNTERPARTIES[0].id);
-  const [settleAmount, setSettleAmount] = useState('25000');
+  const [selectedPayeeId, setSelectedPayeeId] = useState('');
+  const [settleAmount, setSettleAmount] = useState('');
   const [settleRoute, setSettleRoute] = useState<'UPI' | 'NEFT' | 'Cash' | 'Bank'>('UPI');
   const [markResolved, setMarkResolved] = useState(true);
   const [isCommitting, setIsCommitting] = useState(false);
 
-  // New Counterparty Modal State
+  // New / Edit Counterparty Modal State
   const [isAddCounterpartyOpen, setIsAddCounterpartyOpen] = useState(false);
+  const [editingCounterparty, setEditingCounterparty] = useState<CounterpartyProfile | null>(null);
   const [newCpName, setNewCpName] = useState('');
   const [newCpRole, setNewCpRole] = useState('');
   const [newCpType, setNewCpType] = useState<'receivable' | 'payable'>('receivable');
   const [newCpAmount, setNewCpAmount] = useState('');
 
-  // Selected Payee Details
+  // Selected Payee Details safely handled
   const selectedPayee = useMemo(
-    () => counterparties.find((c) => c.id === selectedPayeeId) || counterparties[0],
+    () => counterparties.find((c) => c.id === selectedPayeeId) || counterparties[0] || null,
     [counterparties, selectedPayeeId]
   );
 
@@ -282,13 +164,46 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
       status: 'settled',
     };
 
-    setLedgerEntries([newTx, ...ledgerEntries]);
+    setLedgerEntries((prev) => [newTx, ...prev]);
+
+    // Also register or update counterparty profile
+    setCounterparties((prev) => {
+      const match = prev.find((c) => c.name.toLowerCase() === rapidName.trim().toLowerCase());
+      if (match) {
+        return prev.map((c) =>
+          c.id === match.id
+            ? {
+                ...c,
+                lentCents: c.lentCents + minorUnits,
+                returnedCents: c.returnedCents + minorUnits,
+              }
+            : c
+        );
+      }
+      const newCp: CounterpartyProfile = {
+        id: `cp-${Date.now()}`,
+        name: rapidName.trim(),
+        initials: initials || 'CP',
+        role: 'Peer / Payee',
+        type: 'settled',
+        lentCents: minorUnits,
+        returnedCents: minorUnits,
+        balanceCents: 0,
+        statusBadge: 'Settled',
+      };
+      return [...prev, newCp];
+    });
+
     setRapidName('');
     setRapidAmount('');
     toast(`Payment of ${formatRupee(minorUnits)} recorded for ${rapidName}`, 'success');
   };
 
   const handleExecuteSettle = async () => {
+    if (!selectedPayee) {
+      toast('Please select an active counterparty to settle.', 'error');
+      return;
+    }
     const parsed = parseFloat(settleAmount);
     if (isNaN(parsed) || parsed <= 0) {
       toast('Please enter a valid settlement amount.', 'error');
@@ -296,7 +211,7 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
     }
 
     setIsCommitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     const minorUnits = Math.round(parsed * 100);
 
@@ -327,15 +242,33 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
       categoryLabel: 'Settlement Resolution',
       channel: settleRoute === 'UPI' ? 'UPI / GPay' : settleRoute === 'NEFT' ? 'NEFT / Wire' : 'Cash Payout',
       amountCents: minorUnits,
-      totalPrincipalCents: selectedPayee.lentCents,
+      totalPrincipalCents: selectedPayee.lentCents || minorUnits,
       paidCents: minorUnits,
       status: 'settled',
     };
 
-    setLedgerEntries([newTx, ...ledgerEntries]);
+    setLedgerEntries((prev) => [newTx, ...prev]);
     setIsCommitting(false);
     setIsSettleModalOpen(false);
     toast(`Successfully settled ${formatRupee(minorUnits)} with ${selectedPayee.name}`, 'success');
+  };
+
+  const handleOpenCreateCounterparty = () => {
+    setEditingCounterparty(null);
+    setNewCpName('');
+    setNewCpRole('');
+    setNewCpType('receivable');
+    setNewCpAmount('');
+    setIsAddCounterpartyOpen(true);
+  };
+
+  const handleOpenEditCounterparty = (cp: CounterpartyProfile) => {
+    setEditingCounterparty(cp);
+    setNewCpName(cp.name);
+    setNewCpRole(cp.role);
+    setNewCpType(cp.type === 'payable' ? 'payable' : 'receivable');
+    setNewCpAmount((cp.balanceCents / 100).toString());
+    setIsAddCounterpartyOpen(true);
   };
 
   const handleAddCounterparty = (e: React.FormEvent) => {
@@ -354,6 +287,36 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
       .join('')
       .toUpperCase();
 
+    if (editingCounterparty) {
+      const oldName = editingCounterparty.name;
+      const updatedCp: CounterpartyProfile = {
+        ...editingCounterparty,
+        name: newCpName.trim(),
+        initials: initials || 'CP',
+        role: newCpRole.trim() || editingCounterparty.role,
+        type: newCpType,
+        balanceCents: initialCents,
+        statusBadge: initialCents > 0 ? (newCpType === 'receivable' ? 'Pending' : 'To Pay') : 'Settled',
+      };
+      setCounterparties((prev) => prev.map((c) => (c.id === editingCounterparty.id ? updatedCp : c)));
+      if (oldName.toLowerCase() !== updatedCp.name.toLowerCase()) {
+        setLedgerEntries((prev) =>
+          prev.map((tx) =>
+            tx.counterparty.toLowerCase() === oldName.toLowerCase()
+              ? { ...tx, counterparty: updatedCp.name, counterpartyInitials: updatedCp.initials }
+              : tx
+          )
+        );
+      }
+      setIsAddCounterpartyOpen(false);
+      setEditingCounterparty(null);
+      setNewCpName('');
+      setNewCpRole('');
+      setNewCpAmount('');
+      toast(`Counterparty ${updatedCp.name} updated.`, 'success');
+      return;
+    }
+
     const newCp: CounterpartyProfile = {
       id: `cp-${Date.now()}`,
       name: newCpName.trim(),
@@ -363,15 +326,46 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
       lentCents: initialCents,
       returnedCents: 0,
       balanceCents: initialCents,
-      statusBadge: initialCents > 0 ? (newCpType === 'receivable' ? 'Pending' : 'To Pay') : 'Active',
+      statusBadge: initialCents > 0 ? (newCpType === 'receivable' ? 'Pending' : 'To Pay') : 'Settled',
     };
 
-    setCounterparties([...counterparties, newCp]);
+    setCounterparties((prev) => [...prev, newCp]);
+    if (initialCents > 0) {
+      const openingTx: LendingLedgerEntry = {
+        id: `tx-${Date.now()}`,
+        date: new Date().toISOString().split('T')[0],
+        counterparty: newCp.name,
+        counterpartyInitials: newCp.initials,
+        category: newCpType === 'receivable' ? 'personal_loan' : 'vendor_payout',
+        categoryLabel: newCpType === 'receivable' ? 'Disbursed Loan' : 'Payable Liability',
+        channel: 'UPI / GPay',
+        amountCents: initialCents,
+        totalPrincipalCents: initialCents,
+        paidCents: 0,
+        status: 'pending',
+      };
+      setLedgerEntries((prev) => [openingTx, ...prev]);
+    }
+
     setIsAddCounterpartyOpen(false);
     setNewCpName('');
     setNewCpRole('');
     setNewCpAmount('');
     toast(`Counterparty ${newCp.name} registered.`, 'success');
+  };
+
+  const handleDeleteCounterparty = (id: string) => {
+    const cp = counterparties.find((c) => c.id === id);
+    setCounterparties((prev) => prev.filter((c) => c.id !== id));
+    if (cp) {
+      setLedgerEntries((prev) => prev.filter((tx) => tx.counterparty.toLowerCase() !== cp.name.toLowerCase()));
+      toast(`Counterparty "${cp.name}" removed`, 'info');
+    }
+  };
+
+  const handleDeleteLedgerEntry = (id: string) => {
+    setLedgerEntries((prev) => prev.filter((tx) => tx.id !== id));
+    toast('Ledger entry removed', 'info');
   };
 
   const exportCsv = () => {
@@ -430,7 +424,7 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
             <IconZap size={14} className="mr-1.5 text-primary" /> Settle Balance
           </Button>
           <Button
-            onClick={() => setIsAddCounterpartyOpen(true)}
+            onClick={handleOpenCreateCounterparty}
             size="sm"
             variant="primary"
             className="cursor-pointer text-xs rounded-xl shadow-xs"
@@ -643,60 +637,60 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
           </div>
 
           <div className="flex flex-col gap-3 my-auto">
-            {/* Alert 1 */}
-            <div className="p-3.5 rounded-xl bg-surface-container-low border border-border/60 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="font-title-sm font-bold text-on-surface">Amit Sharma</span>
-                <span className="px-2 py-0.5 rounded-full bg-error-container/60 text-error font-label-caps text-[10px] font-bold">
-                  Due in 2 Days
-                </span>
+            {counterparties.filter((c) => c.balanceCents > 0).length === 0 ? (
+              <div className="p-6 rounded-xl bg-surface-container-low border border-border/50 text-center my-auto flex flex-col items-center justify-center gap-1.5">
+                <IconCheck size={22} className="text-secondary" />
+                <span className="font-bold text-xs text-on-surface">No Outstanding Due Items</span>
+                <span className="text-[11px] text-on-surface-variant">All balances are settled or no counterparties are registered yet.</span>
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-on-surface-variant">Principal Remaining</span>
-                <span className="font-bold text-on-surface font-mono">₹25,000</span>
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                <button
-                  type="button"
-                  onClick={() => toast('Friendly reminder sent via LifeOS WhatsApp gateway', 'success')}
-                  className="flex-1 bg-surface-container-highest hover:bg-surface-container text-on-surface font-label-md text-xs py-1.5 px-2 rounded-lg transition-all text-center cursor-pointer font-medium"
-                >
-                  Send Reminder
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPayeeId('cp-1');
-                    setSettleAmount('25000');
-                    setIsSettleModalOpen(true);
-                  }}
-                  className="flex-1 bg-primary hover:bg-primary-container text-on-primary font-label-md text-xs py-1.5 px-2 rounded-lg transition-all text-center cursor-pointer font-medium shadow-xs"
-                >
-                  Settle ₹25k
-                </button>
-              </div>
-            </div>
-
-            {/* Alert 2 */}
-            <div className="p-3.5 rounded-xl bg-surface-container-low border border-border/60 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="font-title-sm font-bold text-on-surface">Cloud Hosting Co.</span>
-                <span className="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface font-label-caps text-[10px] font-bold">
-                  Due Oct 5
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-on-surface-variant">Vendor Invoice #9021</span>
-                <span className="font-bold text-on-surface font-mono">₹8,400</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => toast('Payment scheduled for Cloud Hosting Co. on Oct 5', 'success')}
-                className="w-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-xs py-1.5 px-2 rounded-lg transition-all text-center cursor-pointer font-medium shadow-xs mt-1"
-              >
-                Schedule Payment
-              </button>
-            </div>
+            ) : (
+              counterparties
+                .filter((c) => c.balanceCents > 0)
+                .slice(0, 3)
+                .map((cp) => (
+                  <div key={cp.id} className="p-3.5 rounded-xl bg-surface-container-low border border-border/60 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-title-sm font-bold text-on-surface">{cp.name}</span>
+                      <span
+                        className={clsx(
+                          'px-2 py-0.5 rounded-full font-label-caps text-[10px] font-bold',
+                          cp.isOverdue
+                            ? 'bg-error-container/60 text-error'
+                            : 'bg-surface-container-highest text-on-surface'
+                        )}
+                      >
+                        {cp.statusBadge || (cp.type === 'payable' ? 'To Pay' : 'Owed')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-on-surface-variant">
+                        {cp.type === 'payable' ? 'Payable Balance' : 'Principal Receivable'}
+                      </span>
+                      <span className="font-bold text-on-surface font-mono">{formatRupee(cp.balanceCents)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => toast(`Friendly reminder generated for ${cp.name}`, 'success')}
+                        className="flex-1 bg-surface-container-highest hover:bg-surface-container text-on-surface font-label-md text-xs py-1.5 px-2 rounded-lg transition-all text-center cursor-pointer font-medium"
+                      >
+                        Send Reminder
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPayeeId(cp.id);
+                          setSettleAmount((cp.balanceCents / 100).toString());
+                          setIsSettleModalOpen(true);
+                        }}
+                        className="flex-1 bg-primary hover:bg-primary-container text-on-primary font-label-md text-xs py-1.5 px-2 rounded-lg transition-all text-center cursor-pointer font-medium shadow-xs"
+                      >
+                        Settle {formatRupee(cp.balanceCents)}
+                      </button>
+                    </div>
+                  </div>
+                ))
+            )}
           </div>
 
           <div className="pt-3 border-t border-border/40 flex items-center justify-between font-label-caps text-[11px] text-on-surface-variant font-mono">
@@ -871,8 +865,13 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setSelectedPayeeId('cp-1');
-                                  setSettleAmount((tx.amountCents / 100).toString());
+                                  const match = counterparties.find((c) => c.name.toLowerCase() === tx.counterparty.toLowerCase());
+                                  if (match) {
+                                    setSelectedPayeeId(match.id);
+                                    setSettleAmount((match.balanceCents / 100).toString());
+                                  } else {
+                                    setSettleAmount((tx.amountCents / 100).toString());
+                                  }
                                   setIsSettleModalOpen(true);
                                 }}
                                 className="p-1.5 rounded-lg hover:bg-surface-container text-primary hover:text-on-surface transition-colors cursor-pointer"
@@ -887,6 +886,14 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
                                 title="Receipt & Audit Trail"
                               >
                                 <IconFileText size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteLedgerEntry(tx.id)}
+                                className="p-1.5 rounded-lg hover:bg-error-container/30 text-on-surface-variant hover:text-error transition-colors cursor-pointer"
+                                title="Delete Entry"
+                              >
+                                <IconTrash size={15} />
                               </button>
                             </div>
                           </td>
@@ -924,83 +931,111 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
 
             {/* Profile Cards List */}
             <div className="flex flex-col gap-3 overflow-y-auto max-h-[520px] pr-1">
-              {counterparties.map((cp) => (
-                <div
-                  key={cp.id}
-                  className="p-3.5 rounded-xl bg-surface-container-low border border-border/50 hover:bg-surface-container transition-all flex flex-col gap-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-xs">
-                        {cp.initials}
+              {counterparties.length === 0 ? (
+                <div className="p-8 rounded-xl bg-surface-container-low border border-dashed border-border/70 text-center flex flex-col items-center justify-center gap-2">
+                  <IconUsers size={24} className="text-on-surface-variant" />
+                  <p className="font-bold text-xs text-on-surface">No Counterparties Monitored</p>
+                  <p className="text-[11px] text-on-surface-variant max-w-[220px]">
+                    Register a person or business contact to begin tracking mutual loans and repayments.
+                  </p>
+                </div>
+              ) : (
+                counterparties.map((cp) => (
+                  <div
+                    key={cp.id}
+                    className="p-3.5 rounded-xl bg-surface-container-low border border-border/50 hover:bg-surface-container transition-all flex flex-col gap-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-xs">
+                          {cp.initials}
+                        </div>
+                        <div>
+                          <h3 className="font-title-sm text-xs font-bold text-on-surface leading-tight">
+                            {cp.name}
+                          </h3>
+                          <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">
+                            {cp.role}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-title-sm text-xs font-bold text-on-surface leading-tight">
-                          {cp.name}
-                        </h3>
-                        <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">
-                          {cp.role}
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={clsx(
+                            'px-2 py-0.5 rounded-full font-label-caps text-[10px] font-bold',
+                            cp.isOverdue
+                              ? 'bg-error-container/60 text-error'
+                              : cp.type === 'settled'
+                              ? 'bg-secondary-container/40 text-secondary'
+                              : 'bg-surface-container-highest text-on-surface'
+                          )}
+                        >
+                          {cp.statusBadge}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditCounterparty(cp)}
+                          className="p-1 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-all cursor-pointer"
+                          title="Edit Counterparty"
+                        >
+                          <IconEdit size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCounterparty(cp.id)}
+                          className="p-1 rounded-lg hover:bg-error-container/30 text-on-surface-variant hover:text-error transition-all cursor-pointer"
+                          title="Remove Counterparty"
+                        >
+                          <IconTrash size={13} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1 pt-1 text-xs">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-on-surface-variant uppercase">Lent</span>
+                        <span className="font-bold text-on-surface font-mono">{formatRupee(cp.lentCents)}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-on-surface-variant uppercase">Returned</span>
+                        <span className="font-bold text-secondary font-mono">{formatRupee(cp.returnedCents)}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-on-surface-variant uppercase">Balance</span>
+                        <span
+                          className={clsx(
+                            'font-bold font-mono',
+                            cp.balanceCents === 0 ? 'text-secondary' : cp.isOverdue ? 'text-error' : 'text-primary'
+                          )}
+                        >
+                          {formatRupee(cp.balanceCents)}
                         </span>
                       </div>
                     </div>
-                    <span
-                      className={clsx(
-                        'px-2 py-0.5 rounded-full font-label-caps text-[10px] font-bold',
-                        cp.isOverdue
-                          ? 'bg-error-container/60 text-error'
-                          : cp.type === 'settled'
-                          ? 'bg-secondary-container/40 text-secondary'
-                          : 'bg-surface-container-highest text-on-surface'
-                      )}
-                    >
-                      {cp.statusBadge}
-                    </span>
-                  </div>
 
-                  <div className="grid grid-cols-3 gap-1 pt-1 text-xs">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-on-surface-variant uppercase">Lent</span>
-                      <span className="font-bold text-on-surface font-mono">{formatRupee(cp.lentCents)}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-on-surface-variant uppercase">Returned</span>
-                      <span className="font-bold text-secondary font-mono">{formatRupee(cp.returnedCents)}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-on-surface-variant uppercase">Balance</span>
-                      <span
-                        className={clsx(
-                          'font-bold font-mono',
-                          cp.balanceCents === 0 ? 'text-secondary' : cp.isOverdue ? 'text-error' : 'text-primary'
-                        )}
+                    <div className="flex items-center gap-2 pt-1 border-t border-border/40">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPayeeId(cp.id);
+                          setSettleAmount((cp.balanceCents / 100).toString());
+                          setIsSettleModalOpen(true);
+                        }}
+                        className="flex-1 bg-surface-container-lowest hover:bg-surface-container text-on-surface font-label-md text-[11px] py-1 rounded-lg border border-border/50 transition-all text-center cursor-pointer font-semibold"
                       >
-                        {formatRupee(cp.balanceCents)}
-                      </span>
+                        Settle Up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toast(`WhatsApp reminder generated for ${cp.name}`, 'success')}
+                        className="flex-1 bg-primary hover:bg-primary-container text-on-primary font-label-md text-[11px] py-1 rounded-lg transition-all text-center cursor-pointer font-semibold shadow-xs flex items-center justify-center gap-1"
+                      >
+                        <IconSend size={11} /> Ping
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2 pt-1 border-t border-border/40">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedPayeeId(cp.id);
-                        setSettleAmount((cp.balanceCents / 100).toString());
-                        setIsSettleModalOpen(true);
-                      }}
-                      className="flex-1 bg-surface-container-lowest hover:bg-surface-container text-on-surface font-label-md text-[11px] py-1 rounded-lg border border-border/50 transition-all text-center cursor-pointer font-semibold"
-                    >
-                      Settle Up
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => toast(`WhatsApp reminder generated for ${cp.name}`, 'success')}
-                      className="flex-1 bg-primary hover:bg-primary-container text-on-primary font-label-md text-[11px] py-1 rounded-lg transition-all text-center cursor-pointer font-semibold shadow-xs flex items-center justify-center gap-1"
-                    >
-                      <IconSend size={11} /> Ping
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
             <Button
@@ -1023,139 +1058,164 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
         description="Execute full or partial balance resolution with double-entry cryptographic reconciliation."
       >
         <div className="space-y-4 text-left">
-          {/* Payee Selector */}
-          <div className="flex flex-col gap-1.5">
-            <label className="font-label-caps text-xs text-on-surface-variant uppercase font-semibold">
-              Select Target Counterparty
-            </label>
-            <select
-              value={selectedPayeeId}
-              onChange={(e) => {
-                const id = e.target.value;
-                setSelectedPayeeId(id);
-                const found = counterparties.find((c) => c.id === id);
-                if (found) {
-                  setSettleAmount((found.balanceCents / 100).toString());
-                }
-              }}
-              className="w-full bg-surface-container-low text-on-surface text-xs p-2.5 rounded-xl border border-border/60 outline-none cursor-pointer"
-            >
-              {counterparties.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.type === 'payable' ? 'You Owe' : 'Owes'}{' '}
-                  {formatRupee(c.balanceCents)})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Outstanding Info Card */}
-          <div className="bg-surface-container-low p-3.5 rounded-xl border border-border/50 flex items-center justify-between">
-            <span className="text-xs text-on-surface-variant">Total Remaining Balance:</span>
-            <span className="font-metric-stat text-base font-bold text-primary font-mono">
-              {formatRupee(selectedPayee.balanceCents)}
-            </span>
-          </div>
-
-          {/* Settle Amount Input */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between items-center">
-              <label className="font-label-caps text-xs text-on-surface-variant uppercase font-semibold">
-                Settlement Amount (₹)
-              </label>
-              <button
-                type="button"
-                onClick={() => setSettleAmount((selectedPayee.balanceCents / 100).toString())}
-                className="font-label-caps text-xs text-primary hover:underline font-bold cursor-pointer"
+          {counterparties.length === 0 || !selectedPayee ? (
+            <div className="p-6 rounded-xl bg-surface-container-low border border-border/60 text-center">
+              <IconUsers size={28} className="text-on-surface-variant mx-auto mb-2" />
+              <p className="font-bold text-sm text-on-surface">No Counterparties to Settle</p>
+              <p className="text-xs text-on-surface-variant mt-1 mb-4">
+                You need to register at least one counterparty before executing a settlement.
+              </p>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => {
+                  setIsSettleModalOpen(false);
+                  setIsAddCounterpartyOpen(true);
+                }}
               >
-                Settle 100%
-              </button>
+                <IconPlus size={14} className="mr-1" /> Add Counterparty
+              </Button>
             </div>
-            <Input
-              type="number"
-              value={settleAmount}
-              onChange={(e) => setSettleAmount(e.target.value)}
-              className="text-sm font-mono font-bold"
-              placeholder="Enter amount..."
-            />
-          </div>
-
-          {/* Payment Mode Pills */}
-          <div className="flex flex-col gap-1.5">
-            <label className="font-label-caps text-xs text-on-surface-variant uppercase font-semibold">
-              Transaction Gateway / Route
-            </label>
-            <div className="grid grid-cols-4 gap-2 text-xs">
-              {(['UPI', 'NEFT', 'Cash', 'Bank'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setSettleRoute(mode)}
-                  className={clsx(
-                    'py-2 rounded-xl text-center font-semibold cursor-pointer transition-all',
-                    settleRoute === mode
-                      ? 'bg-primary text-on-primary shadow-xs'
-                      : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container border border-border/50'
-                  )}
+          ) : (
+            <>
+              {/* Payee Selector */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-label-caps text-xs text-on-surface-variant uppercase font-semibold">
+                  Select Target Counterparty
+                </label>
+                <select
+                  value={selectedPayeeId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedPayeeId(id);
+                    const found = counterparties.find((c) => c.id === id);
+                    if (found) {
+                      setSettleAmount((found.balanceCents / 100).toString());
+                    }
+                  }}
+                  className="w-full bg-surface-container-low text-on-surface text-xs p-2.5 rounded-xl border border-border/60 outline-none cursor-pointer"
                 >
-                  {mode === 'UPI' ? 'UPI / IMPS' : mode === 'NEFT' ? 'NEFT' : mode === 'Cash' ? 'Cash' : 'Bank Adj'}
-                </button>
-              ))}
-            </div>
-          </div>
+                  {counterparties.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.type === 'payable' ? 'You Owe' : 'Owes'}{' '}
+                      {formatRupee(c.balanceCents)})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          {/* Checkbox confirmation */}
-          <label className="flex items-center gap-2.5 cursor-pointer pt-1">
-            <input
-              type="checkbox"
-              checked={markResolved}
-              onChange={(e) => setMarkResolved(e.target.checked)}
-              className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
-            />
-            <span className="text-xs text-on-surface">
-              Mark loan milestone as resolved & archive audit record
-            </span>
-          </label>
+              {/* Outstanding Info Card */}
+              <div className="bg-surface-container-low p-3.5 rounded-xl border border-border/50 flex items-center justify-between">
+                <span className="text-xs text-on-surface-variant">Total Remaining Balance:</span>
+                <span className="font-metric-stat text-base font-bold text-primary font-mono">
+                  {formatRupee(selectedPayee.balanceCents)}
+                </span>
+              </div>
 
-          {/* Action Footer */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/60">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setIsSettleModalOpen(false)}
-              className="cursor-pointer text-xs rounded-xl"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              disabled={isCommitting}
-              onClick={handleExecuteSettle}
-              className="cursor-pointer text-xs rounded-xl shadow-xs"
-            >
-              {isCommitting ? (
-                <>
-                  <IconHistory size={14} className="mr-1 animate-spin" /> Committing...
-                </>
-              ) : (
-                <>
-                  <IconCheck size={14} className="mr-1" /> Commit to D1 Ledger
-                </>
-              )}
-            </Button>
-          </div>
+              {/* Settle Amount Input */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="font-label-caps text-xs text-on-surface-variant uppercase font-semibold">
+                    Settlement Amount (₹)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setSettleAmount((selectedPayee.balanceCents / 100).toString())}
+                    className="font-label-caps text-xs text-primary hover:underline font-bold cursor-pointer"
+                  >
+                    Settle 100%
+                  </button>
+                </div>
+                <Input
+                  type="number"
+                  value={settleAmount}
+                  onChange={(e) => setSettleAmount(e.target.value)}
+                  className="text-sm font-mono font-bold"
+                  placeholder="Enter amount..."
+                />
+              </div>
+
+              {/* Payment Mode Pills */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-label-caps text-xs text-on-surface-variant uppercase font-semibold">
+                  Transaction Gateway / Route
+                </label>
+                <div className="grid grid-cols-4 gap-2 text-xs">
+                  {(['UPI', 'NEFT', 'Cash', 'Bank'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setSettleRoute(mode)}
+                      className={clsx(
+                        'py-2 rounded-xl text-center font-semibold cursor-pointer transition-all',
+                        settleRoute === mode
+                          ? 'bg-primary text-on-primary shadow-xs'
+                          : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container border border-border/50'
+                      )}
+                    >
+                      {mode === 'UPI' ? 'UPI / IMPS' : mode === 'NEFT' ? 'NEFT' : mode === 'Cash' ? 'Cash' : 'Bank Adj'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Checkbox confirmation */}
+              <label className="flex items-center gap-2.5 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={markResolved}
+                  onChange={(e) => setMarkResolved(e.target.checked)}
+                  className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
+                />
+                <span className="text-xs text-on-surface">
+                  Mark loan milestone as resolved & archive audit record
+                </span>
+              </label>
+
+              {/* Action Footer */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/60">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsSettleModalOpen(false)}
+                  className="cursor-pointer text-xs rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  disabled={isCommitting}
+                  onClick={handleExecuteSettle}
+                  className="cursor-pointer text-xs rounded-xl shadow-xs"
+                >
+                  {isCommitting ? (
+                    <>
+                      <IconHistory size={14} className="mr-1 animate-spin" /> Committing...
+                    </>
+                  ) : (
+                    <>
+                      <IconCheck size={14} className="mr-1" /> Commit to D1 Ledger
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
 
-      {/* Add Counterparty Modal */}
+      {/* Add / Edit Counterparty Modal */}
       <Modal
         isOpen={isAddCounterpartyOpen}
-        onClose={() => setIsAddCounterpartyOpen(false)}
-        title="Add Counterparty Profile"
-        description="Register a person or business entity to track mutual liabilities and disbursements."
+        onClose={() => {
+          setIsAddCounterpartyOpen(false);
+          setEditingCounterparty(null);
+        }}
+        title={editingCounterparty ? 'Edit Counterparty Profile' : 'Add Counterparty Profile'}
+        description={editingCounterparty ? 'Update profile parameters, role, or balance.' : 'Register a person or business entity to track mutual liabilities and disbursements.'}
       >
         <form onSubmit={handleAddCounterparty} className="space-y-4 text-left">
           <div>
@@ -1216,13 +1276,16 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setIsAddCounterpartyOpen(false)}
+              onClick={() => {
+                setIsAddCounterpartyOpen(false);
+                setEditingCounterparty(null);
+              }}
               className="cursor-pointer text-xs rounded-xl"
             >
               Cancel
             </Button>
             <Button type="submit" variant="primary" size="sm" className="cursor-pointer text-xs rounded-xl shadow-xs">
-              <IconPlus size={14} className="mr-1" /> Save Counterparty
+              <IconPlus size={14} className="mr-1" /> {editingCounterparty ? 'Save Changes' : 'Save Counterparty'}
             </Button>
           </div>
         </form>

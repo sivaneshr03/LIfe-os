@@ -192,7 +192,7 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
                   Life<span className="text-primary">OS</span>
                 </span>
                 <span className="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant font-semibold">
-                  {user?.name || 'Sivanesh'}
+                  {user?.name || 'User'}
                 </span>
               </div>
             )}
@@ -309,7 +309,7 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
                     Life<span className="text-primary">OS</span>
                   </span>
                   <span className="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant font-semibold">
-                    {user?.name || 'Sivanesh'}
+                    {user?.name || 'User'}
                   </span>
                 </div>
               </div>

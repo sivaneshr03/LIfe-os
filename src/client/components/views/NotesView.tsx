@@ -18,6 +18,8 @@ import {
   IconSparkles,
   IconTrash,
   IconEdit,
+  IconStar,
+  IconEye,
 } from '../ui/Icons';
 import type {
   NoteData,
@@ -28,7 +30,6 @@ import type {
   ApiPaginatedResponse,
 } from '../../../shared/types';
 import { safeParseJson } from '../../lib/api';
-import { useLocalRecordStore } from '../../stores/useLocalRecordStore';
 
 export function NotesView() {
   const { toast } = useToast();
@@ -53,13 +54,19 @@ export function NotesView() {
   const [prompts, setPrompts] = useState<PromptData[]>([]);
   const [promptSearch, setPromptSearch] = useState('');
 
-  // Modals
+  // Modals & CRUD state
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editingNote, setEditingNote] = useState<NoteData | null>(null);
   const [noteToDelete, setNoteToDelete] = useState<NoteData | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Prompt CRUD specific state
+  const [editingPrompt, setEditingPrompt] = useState<PromptData | null>(null);
+  const [promptToDelete, setPromptToDelete] = useState<PromptData | null>(null);
+  const [viewingPrompt, setViewingPrompt] = useState<PromptData | null>(null);
+  const [isPromptDeleting, setIsPromptDeleting] = useState(false);
 
   // Note form state
   const [noteTitle, setNoteTitle] = useState('');
@@ -72,8 +79,10 @@ export function NotesView() {
   const [promptDesc, setPromptDesc] = useState('');
   const [promptContent, setPromptContent] = useState('');
   const [promptCategory, setPromptCategory] = useState('');
+  const [promptTargetModel, setPromptTargetModel] = useState('gpt-4o');
+  const [promptIsFavorite, setPromptIsFavorite] = useState(false);
 
-  // Fetch general notes with local mock fallback
+  // Fetch general notes - Zero mock baseline
   const fetchNotes = useCallback(async () => {
     try {
       const qParams = new URLSearchParams();
@@ -84,62 +93,17 @@ export function NotesView() {
       const res = await fetch(`/api/notes?${qParams.toString()}`);
       if (res.ok) {
         const { data: json } = await safeParseJson<ApiPaginatedResponse<NoteData>>(res);
-        if (json?.data?.items && json.data.items.length > 0) {
-          setNotes(json.data.items);
-          return;
-        }
+        const items = json?.data?.items || (Array.isArray(json?.data) ? json.data : []);
+        setNotes(items);
+        return;
       }
-
-      // Local mock data fallback derived from in-memory store
-      const localRecords = useLocalRecordStore.getState().records;
-      const mockNotes: NoteData[] = localRecords.map((r, i) => ({
-        id: r.id,
-        userId: 'usr_local_dev',
-        categoryId: r.category,
-        title: r.title,
-        slug: r.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        content: `${r.content}\n\n## Local Mock Note Details\n- **Category**: ${r.category}\n- **Created Date**: ${r.createdAt}\n- **Storage Mode**: In-memory Zustand store (Zero D1 writes).`,
-        summary: r.content.slice(0, 85) + '...',
-        isPinned: i < 3,
-        isArchived: false,
-        wordCount: r.content.split(/\s+/).length + 28,
-        readingTimeMinutes: 1,
-        createdAt: new Date(r.createdAt).getTime() || Date.now() - i * 86400000,
-        updatedAt: Date.now() - i * 3600000,
-      }));
-
-      const filtered = mockNotes.filter((n) => {
-        const q = noteSearch.trim().toLowerCase();
-        const matchesQ = !q || n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q);
-        const matchesCat = selectedCategoryId === 'all' || n.categoryId === selectedCategoryId;
-        const matchesPin = !filterPinned || n.isPinned;
-        return matchesQ && matchesCat && matchesPin;
-      });
-
-      setNotes(filtered);
+      setNotes([]);
     } catch {
-      // Fallback on network errors
-      const localRecords = useLocalRecordStore.getState().records;
-      setNotes(
-        localRecords.map((r, i) => ({
-          id: r.id,
-          userId: 'usr_local_dev',
-          categoryId: r.category,
-          title: r.title,
-          slug: r.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          content: r.content,
-          isPinned: i < 2,
-          isArchived: false,
-          wordCount: 50,
-          readingTimeMinutes: 1,
-          createdAt: Date.now() - i * 86400000,
-          updatedAt: Date.now() - i * 3600000,
-        }))
-      );
+      setNotes([]);
     }
   }, [noteSearch, selectedCategoryId, filterPinned]);
 
-  // Fetch daily note for the currently selected calendar date
+  // Fetch daily note for date - Zero mock baseline
   const fetchDailyNoteForDate = useCallback(async (date: string) => {
     try {
       const res = await fetch(`/api/daily-notes/${date}`);
@@ -147,26 +111,14 @@ export function NotesView() {
         const { data: json } = await safeParseJson<ApiSuccessResponse<DailyNoteData>>(res);
         if (json && json.data) {
           setDailyNote(json.data);
-          setDailyContent(json.data.content);
+          setDailyContent(json.data.content || '');
           setDailyMood(json.data.mood != null ? String(json.data.mood) : 'good');
           setDailyEnergy(json.data.energy ?? 4);
           return;
         }
       }
-      // Mock daily note fallback
-      setDailyNote({
-        id: `daily_${date}`,
-        userId: 'usr_local_dev',
-        date,
-        content: `### Executive Daily Log • ${date}\n- Completed high-priority architecture verification.\n- Tested local in-memory CSV import pipeline.\n- Verified zero remote writes to Cloudflare D1.`,
-        mood: 4,
-        energy: 4,
-        wordCount: 28,
-        isPinned: false,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-      setDailyContent(`### Executive Daily Log • ${date}\n- Completed high-priority architecture verification.\n- Tested local in-memory CSV import pipeline.\n- Verified zero remote writes to Cloudflare D1.`);
+      setDailyNote(null);
+      setDailyContent('');
       setDailyMood('good');
       setDailyEnergy(4);
     } catch {
@@ -175,7 +127,7 @@ export function NotesView() {
     }
   }, []);
 
-  // Fetch prompts with mock fallback
+  // Fetch prompts - Zero mock baseline
   const fetchPrompts = useCallback(async () => {
     try {
       const qParams = new URLSearchParams();
@@ -186,55 +138,16 @@ export function NotesView() {
         const promptList = Array.isArray(json?.data)
           ? json.data
           : (json?.data?.items || []);
-        if (promptList.length > 0) {
-          setPrompts(promptList);
-          return;
-        }
+        setPrompts(promptList);
+        return;
       }
-
-      // Mock prompts fallback
-      const MOCK_PROMPTS: PromptData[] = [
-        {
-          id: 'prompt_1',
-          userId: 'usr_local_dev',
-          title: 'Architecture Review & Threat Modeling',
-          description: 'Deep dive into zero-trust security boundaries and D1 invariants',
-          content: 'Act as a Principal Security Architect. Review the following system specification:\n\n{{spec}}\n\nIdentify potential race conditions and unauthorized mutation vectors.',
-          isStarred: true,
-          variables: [{ name: 'spec', description: 'System design specification or endpoint handler' }],
-          createdAt: Date.now() - 86400000 * 2,
-          updatedAt: Date.now(),
-        },
-        {
-          id: 'prompt_2',
-          userId: 'usr_local_dev',
-          title: 'Weekly Sprint Retrospective Summarizer',
-          description: 'Synthesizes shipped features, metrics, and action items',
-          content: 'Synthesize the following task completions into an executive bulleted summary:\n\n{{completed_tasks}}\n\nGroup by strategic business impact.',
-          isStarred: true,
-          variables: [{ name: 'completed_tasks', description: 'List of completed task titles and PR numbers' }],
-          createdAt: Date.now() - 86400000 * 5,
-          updatedAt: Date.now(),
-        },
-        {
-          id: 'prompt_3',
-          userId: 'usr_local_dev',
-          title: 'Financial Ledger Reconciliation Assistant',
-          description: 'Assists in double-entry balance verification and categorization',
-          content: 'Review the following CSV statement line items:\n\n{{csv_lines}}\n\nMap them to standard budget buckets: Housing, Groceries, Utilities, Investments.',
-          isStarred: false,
-          variables: [{ name: 'csv_lines', description: 'Raw bank statement rows' }],
-          createdAt: Date.now() - 86400000 * 10,
-          updatedAt: Date.now(),
-        },
-      ];
-      setPrompts(MOCK_PROMPTS);
+      setPrompts([]);
     } catch {
-      // ignore
+      setPrompts([]);
     }
   }, [promptSearch]);
 
-  // Fetch categories with mock fallback
+  // Fetch categories - Zero mock baseline
   const fetchCategories = useCallback(async () => {
     try {
       const res = await fetch('/api/categories?domain=note');
@@ -245,18 +158,9 @@ export function NotesView() {
           return;
         }
       }
-
-      // Default mock categories
-      setCategories([
-        { id: 'engineering', userId: 'usr_local_dev', name: 'Engineering', color: '#6366f1', icon: 'code', domain: 'note', sortOrder: 1, isSystemDefault: true, createdAt: Date.now(), updatedAt: Date.now() },
-        { id: 'design', userId: 'usr_local_dev', name: 'Design', color: '#a855f7', icon: 'palette', domain: 'note', sortOrder: 2, isSystemDefault: true, createdAt: Date.now(), updatedAt: Date.now() },
-        { id: 'marketing', userId: 'usr_local_dev', name: 'Marketing', color: '#f59e0b', icon: 'megaphone', domain: 'note', sortOrder: 3, isSystemDefault: true, createdAt: Date.now(), updatedAt: Date.now() },
-        { id: 'support', userId: 'usr_local_dev', name: 'Support', color: '#10b981', icon: 'headphones', domain: 'note', sortOrder: 4, isSystemDefault: true, createdAt: Date.now(), updatedAt: Date.now() },
-        { id: 'operations', userId: 'usr_local_dev', name: 'Operations', color: '#06b6d4', icon: 'cpu', domain: 'note', sortOrder: 5, isSystemDefault: true, createdAt: Date.now(), updatedAt: Date.now() },
-        { id: 'product', userId: 'usr_local_dev', name: 'Product', color: '#ec4899', icon: 'box', domain: 'note', sortOrder: 6, isSystemDefault: true, createdAt: Date.now(), updatedAt: Date.now() },
-      ]);
+      setCategories([]);
     } catch {
-      // ignore
+      setCategories([]);
     }
   }, []);
 
@@ -389,44 +293,155 @@ export function NotesView() {
     }
   };
 
-  const handleCreatePrompt = async (e: React.FormEvent) => {
+  const handleOpenCreatePrompt = () => {
+    setEditingPrompt(null);
+    setPromptTitle('');
+    setPromptDesc('');
+    setPromptContent('');
+    setPromptCategory('');
+    setPromptTargetModel('gpt-4o');
+    setPromptIsFavorite(false);
+    setIsPromptModalOpen(true);
+  };
+
+  const handleOpenEditPrompt = (prompt: PromptData) => {
+    setEditingPrompt(prompt);
+    setPromptTitle(prompt.title);
+    setPromptDesc(prompt.description || '');
+    setPromptContent(prompt.latestVersion?.template || '');
+    setPromptCategory(prompt.categoryId || '');
+    setPromptTargetModel(prompt.targetModel || 'gpt-4o');
+    setPromptIsFavorite(Boolean(prompt.isFavorite));
+    setIsPromptModalOpen(true);
+  };
+
+  const handleSavePrompt = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!promptTitle.trim() || !promptContent.trim()) return;
 
     try {
       setSubmitting(true);
-      const res = await fetch('/api/prompts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: promptTitle.trim(),
-          description: promptDesc.trim() || undefined,
-          template: promptContent.trim(),
-          categoryId: promptCategory || undefined,
-        }),
-      });
+      if (editingPrompt) {
+        // 1. Update metadata
+        const patchRes = await fetch(`/api/prompts/${editingPrompt.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: promptTitle.trim(),
+            description: promptDesc.trim() || undefined,
+            targetModel: promptTargetModel || undefined,
+            categoryId: promptCategory || undefined,
+            isFavorite: promptIsFavorite,
+          }),
+        });
 
-      if (!res.ok) {
-        throw new Error('Failed to create prompt');
+        if (!patchRes.ok) {
+          throw new Error('Failed to update prompt details');
+        }
+
+        // 2. If template was edited, publish a new version
+        const originalTemplate = editingPrompt.latestVersion?.template || '';
+        if (promptContent.trim() !== originalTemplate.trim()) {
+          const versionRes = await fetch(`/api/prompts/${editingPrompt.id}/versions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              template: promptContent.trim(),
+              changeNotes: 'Updated template via Prompt Library',
+            }),
+          });
+          if (!versionRes.ok) {
+            toast.error('Prompt metadata updated, but version bump failed');
+          }
+        }
+
+        toast.success(`Prompt "${promptTitle.trim()}" updated`);
+      } else {
+        const res = await fetch('/api/prompts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: promptTitle.trim(),
+            description: promptDesc.trim() || undefined,
+            template: promptContent.trim(),
+            targetModel: promptTargetModel || undefined,
+            categoryId: promptCategory || undefined,
+            isFavorite: promptIsFavorite,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to create prompt');
+        }
+
+        toast.success(`Prompt "${promptTitle.trim()}" added to library`);
       }
 
-      toast('Prompt saved to library', 'success');
       setIsPromptModalOpen(false);
+      setEditingPrompt(null);
       setPromptTitle('');
       setPromptDesc('');
       setPromptContent('');
       setPromptCategory('');
       fetchPrompts();
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Error creating prompt', 'error');
+      toast.error(err instanceof Error ? err.message : 'Error saving prompt');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleToggleFavoritePrompt = async (prompt: PromptData, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newFav = !prompt.isFavorite;
+    setPrompts((prev) =>
+      (Array.isArray(prev) ? prev : []).map((p) =>
+        p.id === prompt.id ? { ...p, isFavorite: newFav } : p
+      )
+    );
+
+    try {
+      const res = await fetch(`/api/prompts/${prompt.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isFavorite: newFav }),
+      });
+      if (!res.ok) {
+        fetchPrompts();
+      } else {
+        toast.info(newFav ? 'Prompt marked as favorite' : 'Removed from favorites');
+      }
+    } catch {
+      fetchPrompts();
+    }
+  };
+
+  const confirmDeletePrompt = async () => {
+    if (!promptToDelete) return;
+    try {
+      setIsPromptDeleting(true);
+      const res = await fetch(`/api/prompts/${promptToDelete.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        throw new Error('Failed to delete prompt');
+      }
+      toast.success(`Prompt "${promptToDelete.title}" deleted`);
+      setPrompts((prev) => (Array.isArray(prev) ? prev : []).filter((p) => p.id !== promptToDelete.id));
+      setPromptToDelete(null);
+      if (viewingPrompt?.id === promptToDelete.id) {
+        setViewingPrompt(null);
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error deleting prompt');
+    } finally {
+      setIsPromptDeleting(false);
+    }
+  };
+
   const handleCopyPrompt = (template: string) => {
     navigator.clipboard.writeText(template);
-    toast('Prompt copied to clipboard', 'info');
+    toast.info('Prompt copied to clipboard');
   };
 
   const confirmDeleteNote = async () => {
@@ -489,7 +504,7 @@ export function NotesView() {
         <div className="flex items-center gap-2.5 w-full sm:w-auto">
           {tab === 'prompts' ? (
             <button
-              onClick={() => setIsPromptModalOpen(true)}
+              onClick={handleOpenCreatePrompt}
               className="flex items-center gap-2 bg-primary hover:bg-primary-container text-on-primary px-4 py-2 rounded-xl font-label-md text-label-md font-semibold shadow-sm hover:shadow-[0_4px_16px_rgba(70,72,212,0.28)] transition-all cursor-pointer w-full sm:w-auto justify-center"
             >
               <IconPlus size={16} />
@@ -756,12 +771,17 @@ export function NotesView() {
           {/* AI Prompts Tab */}
           {tab === 'prompts' && (
             <div className="space-y-4">
-              <div className="p-3 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm">
-                <Input
-                  value={promptSearch}
-                  onChange={(e) => setPromptSearch(e.target.value)}
-                  placeholder="Search prompts by title, description, or template text..."
-                />
+              <div className="p-3 bg-surface-container-lowest border border-border/70 rounded-2xl shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="w-full sm:w-96">
+                  <Input
+                    value={promptSearch}
+                    onChange={(e) => setPromptSearch(e.target.value)}
+                    placeholder="Search prompts by title, description, or template text..."
+                  />
+                </div>
+                <div className="flex items-center gap-2 text-xs font-mono text-on-surface-variant">
+                  <span>{prompts.length} prompt templates configured</span>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -769,9 +789,9 @@ export function NotesView() {
                   <div className="col-span-full">
                     <EmptyState
                       title="No prompt templates found"
-                      description="Add prompt templates for LLMs, system workflows, and automation."
+                      description="Create modular prompt templates with variables for automated AI reasoning and system workflows."
                       actionLabel="Create Prompt"
-                      onAction={() => setIsPromptModalOpen(true)}
+                      onAction={handleOpenCreatePrompt}
                       icon={<IconSparkles size={32} className="text-primary" />}
                     />
                   </div>
@@ -781,36 +801,98 @@ export function NotesView() {
                     return (
                       <div
                         key={p.id}
-                        className="p-5 bg-surface-container-lowest border border-border/70 rounded-2xl space-y-3.5 hover:border-primary/40 hover:shadow-md transition-all duration-200 flex flex-col justify-between shadow-sm"
+                        className="p-5 bg-surface-container-lowest border border-border/70 rounded-2xl space-y-3.5 hover:border-primary/40 hover:shadow-md transition-all duration-200 flex flex-col justify-between shadow-sm group"
                       >
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <h2 className="font-title-sm text-title-sm font-bold text-on-surface">{p.title}</h2>
-                            <span className="px-2 py-0.5 bg-surface-container text-primary rounded-md font-mono text-[10px] font-semibold">
-                              v{p.currentVersion}
-                            </span>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <button
+                                type="button"
+                                onClick={(e) => handleToggleFavoritePrompt(p, e)}
+                                title={p.isFavorite ? 'Starred (Click to unfavorite)' : 'Click to star'}
+                                className="p-1 text-on-surface-variant hover:text-amber-400 rounded-lg transition-colors cursor-pointer shrink-0"
+                              >
+                                <IconStar
+                                  size={16}
+                                  fill={p.isFavorite ? 'currentColor' : 'none'}
+                                  className={p.isFavorite ? 'text-amber-400 fill-amber-400' : 'text-on-surface-variant/40'}
+                                />
+                              </button>
+                              <h2 className="font-title-sm text-title-sm font-bold text-on-surface truncate">
+                                {p.title}
+                              </h2>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {p.targetModel && (
+                                <span className="px-2 py-0.5 bg-surface-container text-on-surface-variant rounded-md font-mono text-[10px]">
+                                  {p.targetModel}
+                                </span>
+                              )}
+                              <span className="px-2 py-0.5 bg-primary-fixed/40 text-primary rounded-md font-mono text-[10px] font-semibold">
+                                v{p.currentVersion}
+                              </span>
+                            </div>
                           </div>
+
                           {p.description && (
-                            <p className="font-body-sm text-body-sm text-on-surface-variant">{p.description}</p>
+                            <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
+                              {p.description}
+                            </p>
                           )}
-                          <div className="p-3 bg-surface-container-low border border-border/60 rounded-xl font-mono text-[11px] text-on-surface whitespace-pre-wrap max-h-40 overflow-y-auto">
+
+                          <div
+                            onClick={() => setViewingPrompt(p)}
+                            className="p-3 bg-surface-container-low border border-border/60 rounded-xl font-mono text-[11px] text-on-surface whitespace-pre-wrap max-h-36 overflow-hidden relative cursor-pointer hover:border-primary/40 transition-colors"
+                            title="Click to view full prompt template"
+                          >
                             {template}
+                            <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-surface-container-low to-transparent pointer-events-none" />
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-3 border-t border-border/50">
-                          <span className="text-[10px] text-outline font-mono truncate max-w-xs">
-                            Variables:{' '}
-                            {template.match(/\{\{([^}]+)\}\}/g)?.join(', ') || 'None'}
+                        <div className="flex items-center justify-between pt-3 border-t border-border/50 gap-2 flex-wrap">
+                          <span className="text-[10px] text-outline font-mono truncate max-w-[140px] sm:max-w-[180px]">
+                            {template.match(/\{\{([^}]+)\}\}/g)?.join(', ') || 'No variables'}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyPrompt(template)}
-                            className="px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface font-title-sm text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                          >
-                            <IconCopy size={13} />
-                            <span>Copy</span>
-                          </button>
+
+                          {/* Clear UI Action Controls: View, Copy, Edit, Delete */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setViewingPrompt(p)}
+                              title="View prompt details"
+                              className="p-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface font-title-sm text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <IconEye size={14} />
+                              <span className="hidden sm:inline">View</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyPrompt(template)}
+                              title="Copy prompt"
+                              className="p-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface font-title-sm text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <IconCopy size={14} />
+                              <span className="hidden sm:inline">Copy</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditPrompt(p)}
+                              title="Edit prompt"
+                              className="p-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface font-title-sm text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <IconEdit size={14} />
+                              <span className="hidden sm:inline">Edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPromptToDelete(p)}
+                              title="Delete prompt"
+                              className="p-1.5 rounded-lg bg-surface-container-low hover:bg-rose-500/10 text-on-surface-variant hover:text-rose-500 font-title-sm text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <IconTrash size={14} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -905,14 +987,17 @@ export function NotesView() {
         </form>
       </Modal>
 
-      {/* New Prompt Modal */}
+      {/* Prompt Create / Edit Modal */}
       <Modal
         isOpen={isPromptModalOpen}
-        onClose={() => setIsPromptModalOpen(false)}
-        title="Add AI Prompt Template"
+        onClose={() => {
+          setIsPromptModalOpen(false);
+          setEditingPrompt(null);
+        }}
+        title={editingPrompt ? 'Edit AI Prompt Template' : 'Add AI Prompt Template'}
         size="md"
       >
-        <form onSubmit={handleCreatePrompt} className="space-y-4">
+        <form onSubmit={handleSavePrompt} className="space-y-4">
           <Input
             label="Title"
             required
@@ -929,25 +1014,70 @@ export function NotesView() {
             placeholder="When to use this prompt..."
           />
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-foreground/75 mb-1.5">
+                Target Model
+              </label>
+              <select
+                value={promptTargetModel}
+                onChange={(e) => setPromptTargetModel(e.target.value)}
+                className="w-full p-2.5 text-xs bg-background border border-border/80 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+              >
+                <option value="gpt-4o">OpenAI GPT-4o</option>
+                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                <option value="deepseek-r1">DeepSeek R1</option>
+                <option value="general">General / Agnostic</option>
+              </select>
+            </div>
+
+            <CategoryDropdown
+              value={promptCategory}
+              onChange={(id) => setPromptCategory(id)}
+              domain="note"
+              categories={categories}
+              onCategoriesChange={fetchCategories}
+              label="Category (Optional)"
+              placeholder="Select category..."
+            />
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-foreground/75 mb-1.5">
               Prompt Template (Use {'{{variable}}'} placeholders) <span className="text-rose-500">*</span>
             </label>
             <textarea
-              rows={5}
+              rows={6}
               required
               value={promptContent}
               onChange={(e) => setPromptContent(e.target.value)}
               placeholder="Review the following code for security and edge cases: {{code}}"
-              className="w-full p-3 font-mono text-base sm:text-xs bg-background border border-border/80 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary shadow-xs touch-manipulation min-h-[120px]"
+              className="w-full p-3 font-mono text-base sm:text-xs bg-background border border-border/80 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary shadow-xs touch-manipulation min-h-[140px]"
             />
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <input
+              type="checkbox"
+              id="favoritePrompt"
+              checked={promptIsFavorite}
+              onChange={(e) => setPromptIsFavorite(e.target.checked)}
+              className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+            />
+            <label htmlFor="favoritePrompt" className="text-xs font-medium text-foreground/75 cursor-pointer">
+              Favorite prompt (starred on prompt card)
+            </label>
           </div>
 
           <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-border/60">
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setIsPromptModalOpen(false)}
+              onClick={() => {
+                setIsPromptModalOpen(false);
+                setEditingPrompt(null);
+              }}
               disabled={submitting}
               size="sm"
               className="flex-1 sm:flex-initial"
@@ -961,13 +1091,78 @@ export function NotesView() {
               size="sm"
               className="flex-1 sm:flex-initial"
             >
-              Save Prompt
+              {editingPrompt ? 'Save Changes' : 'Save Prompt'}
             </Button>
           </div>
         </form>
       </Modal>
 
-      {/* Reusable Confirmation Modal for Destructive Delete */}
+      {/* Inspect / View Prompt Details Modal */}
+      {viewingPrompt && (
+        <Modal
+          isOpen={Boolean(viewingPrompt)}
+          onClose={() => setViewingPrompt(null)}
+          title={viewingPrompt.title}
+          size="lg"
+        >
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-xs text-on-surface-variant border-b border-border/50 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded bg-surface-container font-mono text-[11px] font-semibold text-primary">
+                  {viewingPrompt.targetModel || 'General'}
+                </span>
+                <span className="font-mono text-[11px]">Version {viewingPrompt.currentVersion}</span>
+              </div>
+              <span className="font-mono text-[11px]">{new Date(viewingPrompt.updatedAt).toLocaleDateString()}</span>
+            </div>
+
+            {viewingPrompt.description && (
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                {viewingPrompt.description}
+              </p>
+            )}
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-on-surface">Template Text</label>
+                <button
+                  type="button"
+                  onClick={() => handleCopyPrompt(viewingPrompt.latestVersion?.template || '')}
+                  className="text-xs text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                >
+                  <IconCopy size={12} />
+                  <span>Copy</span>
+                </button>
+              </div>
+              <pre className="p-3.5 bg-surface-container-low border border-border/70 rounded-xl font-mono text-xs text-on-surface whitespace-pre-wrap max-h-72 overflow-y-auto">
+                {viewingPrompt.latestVersion?.template || 'No template text'}
+              </pre>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/60">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  const p = viewingPrompt;
+                  setViewingPrompt(null);
+                  handleOpenEditPrompt(p);
+                }}
+              >
+                <IconEdit size={13} className="mr-1" /> Edit Prompt
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setViewingPrompt(null)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Note Delete Confirmation Modal */}
       <ConfirmationModal
         isOpen={Boolean(noteToDelete)}
         onClose={() => setNoteToDelete(null)}
@@ -980,6 +1175,22 @@ export function NotesView() {
             : 'Are you sure you want to delete this note?'
         }
         confirmLabel="Delete Note"
+      />
+
+      {/* Prompt Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={Boolean(promptToDelete)}
+        onClose={() => setPromptToDelete(null)}
+        onConfirm={confirmDeletePrompt}
+        isLoading={isPromptDeleting}
+        title="Delete Prompt Template"
+        description={
+          promptToDelete
+            ? `Are you sure you want to permanently delete "${promptToDelete.title}" and its version history? This action cannot be undone.`
+            : 'Are you sure you want to delete this prompt template?'
+        }
+        confirmLabel="Delete Prompt"
+        variant="destructive"
       />
     </div>
   );

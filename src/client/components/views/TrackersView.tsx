@@ -3,6 +3,7 @@ import { clsx } from 'clsx';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { Badge } from '../ui/Badge';
 import { KpiCard, KpiGrid } from '../ui/KpiCard';
 import { LoadingState } from '../ui/States';
@@ -18,6 +19,8 @@ import {
   IconTrendingUp,
   IconFileText,
   IconCalendar,
+  IconEdit,
+  IconTrash,
 } from '../ui/Icons';
 import type {
   HabitData,
@@ -51,12 +54,33 @@ export function TrackersView() {
 
   // Goal Modals & State
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<GoalData | null>(null);
+  const [goalToDelete, setGoalToDelete] = useState<GoalData | null>(null);
+  const [isDeletingGoal, setIsDeletingGoal] = useState(false);
   const [isMilestoneModalOpen, setIsMilestoneModalOpen] = useState(false);
   const [selectedGoalForMilestone, setSelectedGoalForMilestone] = useState<string | null>(null);
   const [selectedGoalForLogs, setSelectedGoalForLogs] = useState<GoalData | null>(null);
   const [isProgressLogModalOpen, setIsProgressLogModalOpen] = useState(false);
   const [isLinkTaskModalOpen, setIsLinkTaskModalOpen] = useState(false);
   const [selectedGoalForLinkTask, setSelectedGoalForLinkTask] = useState<string | null>(null);
+
+  // Habit CRUD states
+  const [editingHabit, setEditingHabit] = useState<HabitData | null>(null);
+  const [habitToDelete, setHabitToDelete] = useState<HabitData | null>(null);
+  const [isDeletingHabit, setIsDeletingHabit] = useState(false);
+
+  // Tracker CRUD states
+  const [editingTracker, setEditingTracker] = useState<TrackerData | null>(null);
+  const [trackerToDelete, setTrackerToDelete] = useState<TrackerData | null>(null);
+  const [isDeletingTracker, setIsDeletingTracker] = useState(false);
+
+  // Fitness CRUD states
+  const [workoutToDelete, setWorkoutToDelete] = useState<WorkoutData | null>(null);
+  const [isDeletingWorkout, setIsDeletingWorkout] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<WorkoutTemplateData | null>(null);
+  const [isDeletingTemplate, setIsDeletingTemplate] = useState(false);
+  const [measurementToDelete, setMeasurementToDelete] = useState<BodyMeasurementData | null>(null);
+  const [isDeletingMeasurement, setIsDeletingMeasurement] = useState(false);
 
   // Goal Form
   const [goalTitle, setGoalTitle] = useState('');
@@ -210,12 +234,75 @@ export function TrackersView() {
   // GOAL ACTIONS
   // ==========================================
 
+  const handleOpenCreateGoal = () => {
+    setEditingGoal(null);
+    setGoalTitle('');
+    setGoalDescription('');
+    setGoalTimeframe('medium_term');
+    setGoalTargetDate('');
+    setGoalNotes('');
+    setGoalColor('#8b5cf6');
+    setIsGoalModalOpen(true);
+  };
+
+  const handleOpenEditGoal = (goal: GoalData) => {
+    setEditingGoal(goal);
+    setGoalTitle(goal.title);
+    setGoalDescription(goal.description || '');
+    setGoalTimeframe(goal.timeframe);
+    setGoalTargetDate(goal.targetDate || '');
+    setGoalNotes(goal.notes || '');
+    setGoalColor(goal.color || '#8b5cf6');
+    setIsGoalModalOpen(true);
+  };
+
+  const confirmDeleteGoal = async () => {
+    if (!goalToDelete) return;
+    const g = goalToDelete;
+    try {
+      setIsDeletingGoal(true);
+      const res = await fetch(`/api/goals/${g.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete goal');
+      setGoals((prev) => prev.filter((item) => item.id !== g.id));
+      addToast(`Goal "${g.title}" deleted`, 'success');
+      setGoalToDelete(null);
+      fetchData();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Error deleting goal', 'error');
+    } finally {
+      setIsDeletingGoal(false);
+    }
+  };
+
   const handleCreateGoal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!goalTitle.trim()) return;
 
     try {
       setSubmitting(true);
+
+      if (editingGoal) {
+        const res = await fetch(`/api/goals/${editingGoal.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: goalTitle.trim(),
+            description: goalDescription.trim() || undefined,
+            timeframe: goalTimeframe,
+            targetDate: goalTargetDate || undefined,
+            notes: goalNotes.trim() || undefined,
+            color: goalColor,
+          }),
+        });
+
+        if (!res.ok) throw new Error('Failed to update goal');
+        addToast('Goal updated successfully', 'success');
+        setIsGoalModalOpen(false);
+        setEditingGoal(null);
+        fetchData();
+        return;
+      }
+
       const res = await fetch('/api/goals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -291,6 +378,26 @@ export function TrackersView() {
     }
   };
 
+  const handleDeleteMilestone = async (milestoneId: string) => {
+    try {
+      const res = await fetch(`/api/goals/milestones/${milestoneId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete milestone');
+      addToast('Milestone deleted', 'info');
+      if (selectedGoalForLogs) {
+        const goalRes = await fetch(`/api/goals/${selectedGoalForLogs.id}`);
+        if (goalRes.ok) {
+          const { data: json } = await safeParseJson<ApiSuccessResponse<GoalData>>(goalRes);
+          if (json?.data) {
+            setSelectedGoalForLogs(json.data);
+          }
+        }
+      }
+      fetchData();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Error deleting milestone', 'error');
+    }
+  };
+
   const handleLogGoalProgress = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedGoalForLogs) return;
@@ -346,12 +453,69 @@ export function TrackersView() {
   // HABIT & TRACKER ACTIONS
   // ==========================================
 
+  const handleOpenCreateHabit = () => {
+    setEditingHabit(null);
+    setHabitName('');
+    setHabitFrequency('daily');
+    setHabitTarget(7);
+    setHabitColor('#10b981');
+    setIsHabitModalOpen(true);
+  };
+
+  const handleOpenEditHabit = (h: HabitData) => {
+    setEditingHabit(h);
+    setHabitName(h.name);
+    setHabitFrequency(h.frequencyType as 'daily' | 'weekly' | 'custom_days');
+    setHabitTarget(h.targetDaysPerWeek);
+    setHabitColor(h.color || '#10b981');
+    setIsHabitModalOpen(true);
+  };
+
+  const confirmDeleteHabit = async () => {
+    if (!habitToDelete) return;
+    const h = habitToDelete;
+    try {
+      setIsDeletingHabit(true);
+      const res = await fetch(`/api/habits/${h.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete habit');
+      setHabits((prev) => prev.filter((item) => item.id !== h.id));
+      addToast(`Habit "${h.name}" deleted`, 'success');
+      setHabitToDelete(null);
+      fetchData();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Error deleting habit', 'error');
+    } finally {
+      setIsDeletingHabit(false);
+    }
+  };
+
   const handleCreateHabit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!habitName.trim()) return;
 
     try {
       setSubmitting(true);
+
+      if (editingHabit) {
+        const res = await fetch(`/api/habits/${editingHabit.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: habitName.trim(),
+            frequencyType: habitFrequency,
+            targetDaysPerWeek: Number(habitTarget),
+            color: habitColor,
+          }),
+        });
+
+        if (!res.ok) throw new Error('Failed to update habit');
+        addToast('Habit updated successfully', 'success');
+        setIsHabitModalOpen(false);
+        setEditingHabit(null);
+        fetchData();
+        return;
+      }
+
       const res = await fetch('/api/habits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -392,12 +556,68 @@ export function TrackersView() {
     }
   };
 
+  const handleOpenCreateTracker = () => {
+    setEditingTracker(null);
+    setTrackerName('');
+    setTrackerType('numeric');
+    setTrackerUnit('count');
+    setTrackerTarget('');
+    setIsTrackerModalOpen(true);
+  };
+
+  const handleOpenEditTracker = (t: TrackerData) => {
+    setEditingTracker(t);
+    setTrackerName(t.name);
+    setTrackerType(t.type);
+    setTrackerUnit(t.unit || 'count');
+    setTrackerTarget(t.targetValue ?? '');
+    setIsTrackerModalOpen(true);
+  };
+
+  const confirmDeleteTracker = async () => {
+    if (!trackerToDelete) return;
+    const t = trackerToDelete;
+    try {
+      setIsDeletingTracker(true);
+      const res = await fetch(`/api/trackers/${t.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete tracker');
+      setTrackers((prev) => prev.filter((item) => item.id !== t.id));
+      addToast(`Tracker "${t.name}" deleted`, 'success');
+      setTrackerToDelete(null);
+      fetchData();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Error deleting tracker', 'error');
+    } finally {
+      setIsDeletingTracker(false);
+    }
+  };
+
   const handleCreateTracker = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackerName.trim()) return;
 
     try {
       setSubmitting(true);
+
+      if (editingTracker) {
+        const res = await fetch(`/api/trackers/${editingTracker.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: trackerName.trim(),
+            unit: trackerUnit.trim() || undefined,
+            targetValue: trackerTarget !== '' ? Number(trackerTarget) : undefined,
+          }),
+        });
+
+        if (!res.ok) throw new Error('Failed to update tracker');
+        addToast('Metric tracker updated', 'success');
+        setIsTrackerModalOpen(false);
+        setEditingTracker(null);
+        fetchData();
+        return;
+      }
+
       const res = await fetch('/api/trackers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -454,6 +674,60 @@ export function TrackersView() {
   // ==========================================
   // FITNESS & WORKOUT ACTIONS
   // ==========================================
+
+  const confirmDeleteWorkout = async () => {
+    if (!workoutToDelete) return;
+    const w = workoutToDelete;
+    try {
+      setIsDeletingWorkout(true);
+      const res = await fetch(`/api/workouts/${w.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete workout');
+      setWorkouts((prev) => prev.filter((item) => item.id !== w.id));
+      addToast(`Workout session "${w.name}" deleted`, 'success');
+      setWorkoutToDelete(null);
+      fetchData();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Error deleting workout', 'error');
+    } finally {
+      setIsDeletingWorkout(false);
+    }
+  };
+
+  const confirmDeleteTemplate = async () => {
+    if (!templateToDelete) return;
+    const tmpl = templateToDelete;
+    try {
+      setIsDeletingTemplate(true);
+      const res = await fetch(`/api/workouts/templates/${tmpl.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete routine template');
+      setWorkoutTemplates((prev) => prev.filter((item) => item.id !== tmpl.id));
+      addToast(`Routine template "${tmpl.name}" deleted`, 'success');
+      setTemplateToDelete(null);
+      fetchData();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Error deleting template', 'error');
+    } finally {
+      setIsDeletingTemplate(false);
+    }
+  };
+
+  const confirmDeleteMeasurement = async () => {
+    if (!measurementToDelete) return;
+    const m = measurementToDelete;
+    try {
+      setIsDeletingMeasurement(true);
+      const res = await fetch(`/api/workouts/measurements/${m.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete body measurement');
+      setMeasurements((prev) => prev.filter((item) => item.id !== m.id));
+      addToast(`Measurement record from ${m.date} deleted`, 'success');
+      setMeasurementToDelete(null);
+      fetchData();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Error deleting measurement', 'error');
+    } finally {
+      setIsDeletingMeasurement(false);
+    }
+  };
 
   const handleCreateWorkout = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -601,16 +875,16 @@ export function TrackersView() {
         {/* Action Button depending on active tab */}
         <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
           {activeTab === 'goals' && (
-            <Button onClick={() => setIsGoalModalOpen(true)} variant="primary" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[38px] rounded-xl shadow-xs">
+            <Button onClick={handleOpenCreateGoal} variant="primary" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[38px] rounded-xl shadow-xs">
               <IconPlus size={16} className="mr-1" /> New Goal
             </Button>
           )}
           {activeTab === 'habits' && (
             <div className="grid grid-cols-2 sm:flex gap-2 w-full sm:w-auto">
-              <Button onClick={() => setIsHabitModalOpen(true)} variant="outline" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[38px] rounded-xl shadow-xs">
+              <Button onClick={handleOpenCreateHabit} variant="outline" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[38px] rounded-xl shadow-xs">
                 <IconPlus size={16} className="mr-1" /> Habit
               </Button>
-              <Button onClick={() => setIsTrackerModalOpen(true)} variant="primary" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[38px] rounded-xl shadow-xs">
+              <Button onClick={handleOpenCreateTracker} variant="primary" className="cursor-pointer w-full sm:w-auto justify-center min-h-[40px] sm:min-h-[38px] rounded-xl shadow-xs">
                 <IconPlus size={16} className="mr-1" /> Metric Tracker
               </Button>
             </div>
@@ -745,7 +1019,7 @@ export function TrackersView() {
               <p className="font-body-sm text-on-surface-variant mt-1 max-w-sm mx-auto">
                 Define your short, medium, and long-term milestones to track high-impact life achievements.
               </p>
-              <Button onClick={() => setIsGoalModalOpen(true)} variant="primary" className="mt-4 cursor-pointer rounded-xl shadow-xs">
+              <Button onClick={handleOpenCreateGoal} variant="primary" className="mt-4 cursor-pointer rounded-xl shadow-xs">
                 <IconPlus size={16} className="mr-1" /> Create First Goal
               </Button>
             </div>
@@ -767,17 +1041,37 @@ export function TrackersView() {
                           {goal.title}
                         </h3>
                       </div>
-                      <Badge
-                        variant={
-                          goal.status === 'completed'
-                            ? 'success'
-                            : goal.status === 'in_progress'
-                            ? 'primary'
-                            : 'default'
-                        }
-                      >
-                        {goal.status.replace('_', ' ')}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Badge
+                          variant={
+                            goal.status === 'completed'
+                              ? 'success'
+                              : goal.status === 'in_progress'
+                              ? 'primary'
+                              : 'default'
+                          }
+                        >
+                          {goal.status.replace('_', ' ')}
+                        </Badge>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditGoal(goal)}
+                          title="Edit goal"
+                          aria-label={`Edit goal ${goal.title}`}
+                          className="p-1.5 text-outline hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <IconEdit size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setGoalToDelete(goal)}
+                          title="Delete goal"
+                          aria-label={`Delete goal ${goal.title}`}
+                          className="p-1.5 text-outline hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <IconTrash size={14} />
+                        </button>
+                      </div>
                     </div>
 
                     {goal.description && (
@@ -888,7 +1182,7 @@ export function TrackersView() {
               <div className="p-8 text-center border border-dashed border-border/70 rounded-2xl bg-surface-container-lowest shadow-sm">
                 <IconFlame size={36} className="text-on-surface-variant/50 mx-auto mb-2" />
                 <p className="font-title-sm font-semibold text-on-surface">No active habits defined</p>
-                <Button onClick={() => setIsHabitModalOpen(true)} variant="primary" size="sm" className="mt-3 cursor-pointer rounded-xl shadow-xs">
+                <Button onClick={handleOpenCreateHabit} variant="primary" size="sm" className="mt-3 cursor-pointer rounded-xl shadow-xs">
                   <IconPlus size={14} className="mr-1" /> Add Habit
                 </Button>
               </div>
@@ -906,11 +1200,29 @@ export function TrackersView() {
                           {habit.frequencyType.replace('_', ' ')} · {habit.targetDaysPerWeek}d/wk
                         </p>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <span className="flex items-center gap-1 text-xs font-bold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20 font-mono">
                           <IconFlame size={13} className="text-amber-500 fill-amber-500/30" />
                           <span>{habit.currentStreak || 0}d</span>
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditHabit(habit)}
+                          title="Edit habit"
+                          aria-label={`Edit habit ${habit.name}`}
+                          className="p-1.5 text-outline hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <IconEdit size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHabitToDelete(habit)}
+                          title="Delete habit"
+                          aria-label={`Delete habit ${habit.name}`}
+                          className="p-1.5 text-outline hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <IconTrash size={14} />
+                        </button>
                       </div>
                     </div>
 
@@ -948,7 +1260,7 @@ export function TrackersView() {
                   Track counts, durations, ratings, numbers, and text logs with date-specific notes.
                 </p>
               </div>
-              <Button onClick={() => setIsTrackerModalOpen(true)} variant="outline" size="sm" className="cursor-pointer text-xs rounded-xl shadow-xs">
+              <Button onClick={handleOpenCreateTracker} variant="outline" size="sm" className="cursor-pointer text-xs rounded-xl shadow-xs">
                 <IconPlus size={14} className="mr-1" /> New Metric
               </Button>
             </div>
@@ -957,7 +1269,7 @@ export function TrackersView() {
               <div className="p-8 text-center border border-dashed border-border/70 rounded-2xl bg-surface-container-lowest shadow-sm">
                 <IconTrendingUp size={36} className="text-on-surface-variant/50 mx-auto mb-2" />
                 <p className="font-title-sm font-semibold text-on-surface">No metric trackers configured</p>
-                <Button onClick={() => setIsTrackerModalOpen(true)} variant="primary" size="sm" className="mt-3 cursor-pointer rounded-xl shadow-xs">
+                <Button onClick={handleOpenCreateTracker} variant="primary" size="sm" className="mt-3 cursor-pointer rounded-xl shadow-xs">
                   <IconPlus size={14} className="mr-1" /> Add Tracker
                 </Button>
               </div>
@@ -976,9 +1288,29 @@ export function TrackersView() {
                           </Badge>
                           <h3 className="font-title-sm font-bold text-on-surface mt-1">{t.name}</h3>
                         </div>
-                        <span className="text-xs text-on-surface-variant font-mono">
-                          {t.entryCount || 0} entries
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-xs text-on-surface-variant font-mono">
+                            {t.entryCount || 0} entries
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditTracker(t)}
+                            title="Edit tracker"
+                            aria-label={`Edit tracker ${t.name}`}
+                            className="p-1.5 text-outline hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <IconEdit size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTrackerToDelete(t)}
+                            title="Delete tracker"
+                            aria-label={`Delete tracker ${t.name}`}
+                            className="p-1.5 text-outline hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <IconTrash size={14} />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="p-3 bg-surface-container-low rounded-xl border border-border/50 flex items-center justify-between">
@@ -1090,6 +1422,15 @@ export function TrackersView() {
                             </span>
                           </div>
                         ) : null}
+                        <button
+                          type="button"
+                          onClick={() => setWorkoutToDelete(w)}
+                          title="Delete workout"
+                          aria-label={`Delete workout ${w.name}`}
+                          className="p-1.5 text-outline hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <IconTrash size={16} />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -1138,7 +1479,16 @@ export function TrackersView() {
                         )}
                       </div>
 
-                      <div className="pt-3 border-t border-border/60 flex justify-end">
+                      <div className="pt-3 border-t border-border/60 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setTemplateToDelete(tmpl)}
+                          title="Delete template"
+                          aria-label={`Delete template ${tmpl.name}`}
+                          className="p-1.5 text-outline hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <IconTrash size={14} />
+                        </button>
                         <Button
                           onClick={() => handleStartWorkoutFromTemplate(tmpl.id)}
                           variant="primary"
@@ -1240,6 +1590,7 @@ export function TrackersView() {
                         <th className="p-3.5">Waist</th>
                         <th className="p-3.5">Chest</th>
                         <th className="p-3.5">Notes</th>
+                        <th className="p-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
@@ -1259,6 +1610,17 @@ export function TrackersView() {
                             {m.chestMm ? `${(m.chestMm / 10).toFixed(1)} cm` : '—'}
                           </td>
                           <td className="p-3.5 text-xs text-on-surface-variant">{m.notes || '—'}</td>
+                          <td className="p-3.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setMeasurementToDelete(m)}
+                              title="Delete measurement"
+                              aria-label="Delete measurement"
+                              className="p-1.5 text-outline hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <IconTrash size={14} />
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1353,7 +1715,14 @@ export function TrackersView() {
       {/* ==================================================================== */}
 
       {/* Modal: New Goal */}
-      <Modal isOpen={isGoalModalOpen} onClose={() => setIsGoalModalOpen(false)} title="Create New Goal">
+      <Modal
+        isOpen={isGoalModalOpen}
+        onClose={() => {
+          setIsGoalModalOpen(false);
+          setEditingGoal(null);
+        }}
+        title={editingGoal ? 'Edit Goal' : 'Create New Goal'}
+      >
         <form onSubmit={handleCreateGoal} className="space-y-4">
           <Input
             label="Goal Title"
@@ -1402,11 +1771,19 @@ export function TrackersView() {
           />
 
           <div className="flex items-center justify-end gap-2 pt-4">
-            <Button onClick={() => setIsGoalModalOpen(false)} variant="ghost" type="button" className="flex-1 sm:flex-initial">
+            <Button
+              onClick={() => {
+                setIsGoalModalOpen(false);
+                setEditingGoal(null);
+              }}
+              variant="ghost"
+              type="button"
+              className="flex-1 sm:flex-initial"
+            >
               Cancel
             </Button>
             <Button variant="primary" type="submit" isLoading={submitting} className="flex-1 sm:flex-initial">
-              Save Goal
+              {editingGoal ? 'Save Changes' : 'Save Goal'}
             </Button>
           </div>
         </form>
@@ -1473,22 +1850,33 @@ export function TrackersView() {
                 {selectedGoalForLogs.milestones.map((m) => (
                   <div
                     key={m.id}
-                    className="p-2.5 bg-muted/40 rounded-lg flex items-center justify-between text-sm"
+                    className="p-2.5 bg-muted/40 rounded-lg flex items-center justify-between text-sm gap-2"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <input
                         type="checkbox"
                         checked={m.isCompleted}
                         onChange={() => handleToggleMilestone(m.id, m.isCompleted)}
                         className="rounded text-primary focus:ring-primary h-4 w-4"
                       />
-                      <span className={clsx(m.isCompleted && 'line-through text-foreground/50')}>
+                      <span className={clsx('truncate', m.isCompleted && 'line-through text-foreground/50')}>
                         {m.title}
                       </span>
                     </div>
-                    <Badge variant={m.isCompleted ? 'success' : 'default'}>
-                      {m.currentValue} / {m.targetValue} {m.unit}
-                    </Badge>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant={m.isCompleted ? 'success' : 'default'}>
+                        {m.currentValue} / {m.targetValue} {m.unit}
+                      </Badge>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMilestone(m.id)}
+                        className="p-1 rounded text-foreground/50 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                        title="Delete Milestone"
+                        aria-label="Delete Milestone"
+                      >
+                        <IconTrash size={14} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1566,7 +1954,14 @@ export function TrackersView() {
       </Modal>
 
       {/* Modal: New Habit */}
-      <Modal isOpen={isHabitModalOpen} onClose={() => setIsHabitModalOpen(false)} title="New Daily / Weekly Habit">
+      <Modal
+        isOpen={isHabitModalOpen}
+        onClose={() => {
+          setIsHabitModalOpen(false);
+          setEditingHabit(null);
+        }}
+        title={editingHabit ? 'Edit Habit' : 'New Daily / Weekly Habit'}
+      >
         <form onSubmit={handleCreateHabit} className="space-y-4">
           <Input
             label="Habit Name"
@@ -1608,18 +2003,33 @@ export function TrackersView() {
             </div>
           </div>
           <div className="flex items-center justify-end gap-2 pt-4">
-            <Button onClick={() => setIsHabitModalOpen(false)} variant="ghost" type="button" className="flex-1 sm:flex-initial">
+            <Button
+              onClick={() => {
+                setIsHabitModalOpen(false);
+                setEditingHabit(null);
+              }}
+              variant="ghost"
+              type="button"
+              className="flex-1 sm:flex-initial"
+            >
               Cancel
             </Button>
             <Button variant="primary" type="submit" isLoading={submitting} className="flex-1 sm:flex-initial">
-              Save Habit
+              {editingHabit ? 'Save Changes' : 'Save Habit'}
             </Button>
           </div>
         </form>
       </Modal>
 
       {/* Modal: New Metric Tracker */}
-      <Modal isOpen={isTrackerModalOpen} onClose={() => setIsTrackerModalOpen(false)} title="New Metric Tracker">
+      <Modal
+        isOpen={isTrackerModalOpen}
+        onClose={() => {
+          setIsTrackerModalOpen(false);
+          setEditingTracker(null);
+        }}
+        title={editingTracker ? 'Edit Metric Tracker' : 'New Metric Tracker'}
+      >
         <form onSubmit={handleCreateTracker} className="space-y-4">
           <Input
             label="Metric Name"
@@ -1633,8 +2043,9 @@ export function TrackersView() {
               <label className="block text-xs font-semibold text-foreground/70 mb-1">Type</label>
               <select
                 value={trackerType}
+                disabled={Boolean(editingTracker)}
                 onChange={(e) => setTrackerType(e.target.value as 'numeric' | 'boolean' | 'duration' | 'rating' | 'count' | 'text')}
-                className="w-full px-3.5 py-2.5 sm:py-2 text-base sm:text-sm min-h-[44px] sm:min-h-[38px] bg-background border border-border rounded-xl text-foreground touch-manipulation cursor-pointer"
+                className="w-full px-3.5 py-2.5 sm:py-2 text-base sm:text-sm min-h-[44px] sm:min-h-[38px] bg-background border border-border rounded-xl text-foreground touch-manipulation cursor-pointer disabled:opacity-50"
               >
                 <option value="numeric">Numeric Number</option>
                 <option value="count">Count / Tally</option>
@@ -1659,11 +2070,19 @@ export function TrackersView() {
             />
           </div>
           <div className="flex items-center justify-end gap-2 pt-4">
-            <Button onClick={() => setIsTrackerModalOpen(false)} variant="ghost" type="button" className="flex-1 sm:flex-initial">
+            <Button
+              onClick={() => {
+                setIsTrackerModalOpen(false);
+                setEditingTracker(null);
+              }}
+              variant="ghost"
+              type="button"
+              className="flex-1 sm:flex-initial"
+            >
               Cancel
             </Button>
             <Button variant="primary" type="submit" isLoading={submitting} className="flex-1 sm:flex-initial">
-              Create Metric
+              {editingTracker ? 'Save Changes' : 'Create Metric'}
             </Button>
           </div>
         </form>
@@ -1955,6 +2374,73 @@ export function TrackersView() {
           </div>
         </form>
       </Modal>
+
+      {/* Delete Confirmation Modals */}
+      <ConfirmationModal
+        isOpen={Boolean(goalToDelete)}
+        title="Delete Goal"
+        message={`Are you sure you want to delete goal "${goalToDelete?.title}"? All associated milestones and progress history will be removed.`}
+        confirmText="Delete Goal"
+        variant="danger"
+        isLoading={isDeletingGoal}
+        onConfirm={confirmDeleteGoal}
+        onClose={() => setGoalToDelete(null)}
+      />
+
+      <ConfirmationModal
+        isOpen={Boolean(habitToDelete)}
+        title="Delete Habit"
+        message={`Are you sure you want to delete habit "${habitToDelete?.name}"? All streak records and completion logs will be removed.`}
+        confirmText="Delete Habit"
+        variant="danger"
+        isLoading={isDeletingHabit}
+        onConfirm={confirmDeleteHabit}
+        onClose={() => setHabitToDelete(null)}
+      />
+
+      <ConfirmationModal
+        isOpen={Boolean(trackerToDelete)}
+        title="Delete Metric Tracker"
+        message={`Are you sure you want to delete tracker "${trackerToDelete?.name}"? All time-series data points logged for this metric will be removed.`}
+        confirmText="Delete Tracker"
+        variant="danger"
+        isLoading={isDeletingTracker}
+        onConfirm={confirmDeleteTracker}
+        onClose={() => setTrackerToDelete(null)}
+      />
+
+      <ConfirmationModal
+        isOpen={Boolean(workoutToDelete)}
+        title="Delete Workout"
+        message={`Are you sure you want to delete the workout logged on ${workoutToDelete?.date}?`}
+        confirmText="Delete Workout"
+        variant="danger"
+        isLoading={isDeletingWorkout}
+        onConfirm={confirmDeleteWorkout}
+        onClose={() => setWorkoutToDelete(null)}
+      />
+
+      <ConfirmationModal
+        isOpen={Boolean(templateToDelete)}
+        title="Delete Routine Template"
+        message={`Are you sure you want to delete routine template "${templateToDelete?.name}"?`}
+        confirmText="Delete Template"
+        variant="danger"
+        isLoading={isDeletingTemplate}
+        onConfirm={confirmDeleteTemplate}
+        onClose={() => setTemplateToDelete(null)}
+      />
+
+      <ConfirmationModal
+        isOpen={Boolean(measurementToDelete)}
+        title="Delete Body Measurement"
+        message={`Are you sure you want to delete the body measurement record from ${measurementToDelete?.date}?`}
+        confirmText="Delete Measurement"
+        variant="danger"
+        isLoading={isDeletingMeasurement}
+        onConfirm={confirmDeleteMeasurement}
+        onClose={() => setMeasurementToDelete(null)}
+      />
     </div>
   );
 }

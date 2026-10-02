@@ -6,7 +6,7 @@ import { Modal } from '../ui/Modal';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { LoadingState } from '../ui/States';
 import { useToast } from '../ui/Toast';
-import { IconPlus, IconTrendingUp, IconFileText, IconRefreshCw, IconTrash } from '../ui/Icons';
+import { IconPlus, IconTrendingUp, IconFileText, IconRefreshCw, IconTrash, IconEdit } from '../ui/Icons';
 import { CsvDropzone } from '../ui/CsvDropzone';
 import { KpiCard, KpiGrid } from '../ui/KpiCard';
 import { formatMoney, parseMoney } from '../../../shared/utils/money';
@@ -36,7 +36,8 @@ export function InvestmentsView() {
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Asset deletion state
+  // Asset editing & deletion state
+  const [editingAsset, setEditingAsset] = useState<InvestmentAssetData | null>(null);
   const [assetToDelete, setAssetToDelete] = useState<InvestmentAssetData | null>(null);
   const [isDeletingAsset, setIsDeletingAsset] = useState(false);
 
@@ -131,6 +132,30 @@ export function InvestmentsView() {
     }
   };
 
+  const handleOpenCreateAsset = () => {
+    setEditingAsset(null);
+    setSym('');
+    setName('');
+    setType('stock');
+    setShares('1');
+    setAvgCost('');
+    setPrice('');
+    setAssetErrors({});
+    setIsAssetModalOpen(true);
+  };
+
+  const handleOpenEditAsset = (asset: InvestmentAssetData) => {
+    setEditingAsset(asset);
+    setSym(asset.symbol);
+    setName(asset.name);
+    setType(asset.assetType);
+    setShares(asset.sharesFormatted);
+    setAvgCost(asset.avgCostBasisCents > 0 ? (asset.avgCostBasisCents / 100).toFixed(2) : '');
+    setPrice(asset.latestPriceCents > 0 ? (asset.latestPriceCents / 100).toFixed(2) : '');
+    setAssetErrors({});
+    setIsAssetModalOpen(true);
+  };
+
   const handleCreateAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     const errors: Record<string, string> = {};
@@ -162,6 +187,32 @@ export function InvestmentsView() {
       setSubmitting(true);
       const costCents = avgCost ? parseMoney(avgCost) : 0;
       const priceCents = price ? parseMoney(price) : 0;
+
+      if (editingAsset) {
+        const res = await fetch(`/api/investments/assets/${editingAsset.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            symbol: sym.trim().toUpperCase(),
+            name: name.trim(),
+            assetType: type,
+            shares: shares || '0',
+            avgCostBasisCents: costCents,
+            latestPriceCents: priceCents,
+          }),
+        });
+
+        if (!res.ok) {
+          const { data: errJson } = await safeParseJson<{ error?: string }>(res);
+          throw new Error(errJson?.error || 'Failed to update asset');
+        }
+
+        addToast('Asset updated in portfolio', 'success');
+        setIsAssetModalOpen(false);
+        setEditingAsset(null);
+        fetchInvestments();
+        return;
+      }
 
       const res = await fetch('/api/investments/assets', {
         method: 'POST',
@@ -464,7 +515,7 @@ export function InvestmentsView() {
             <span>Quote</span>
           </Button>
           <Button
-            onClick={() => setIsAssetModalOpen(true)}
+            onClick={handleOpenCreateAsset}
             variant="primary"
             size="sm"
             className="rounded-xl shadow-sm hover:shadow-[0_4px_16px_rgba(70,72,212,0.28)]"
@@ -631,15 +682,26 @@ export function InvestmentsView() {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => setAssetToDelete(asset)}
-                            title={`Delete ${asset.symbol}`}
-                            aria-label={`Delete asset ${asset.symbol}`}
-                            className="neo-btn neo-btn-sm neo-btn-icon neo-btn-delete min-w-[28px] min-h-[28px]"
-                          >
-                            <IconTrash size={13} />
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditAsset(asset)}
+                              title={`Edit ${asset.symbol}`}
+                              aria-label={`Edit asset ${asset.symbol}`}
+                              className="neo-btn neo-btn-sm neo-btn-icon min-w-[28px] min-h-[28px]"
+                            >
+                              <IconEdit size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAssetToDelete(asset)}
+                              title={`Delete ${asset.symbol}`}
+                              aria-label={`Delete asset ${asset.symbol}`}
+                              className="neo-btn neo-btn-sm neo-btn-icon neo-btn-delete min-w-[28px] min-h-[28px]"
+                            >
+                              <IconTrash size={13} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -878,11 +940,14 @@ export function InvestmentsView() {
         </form>
       </Modal>
 
-      {/* New Asset Modal */}
+      {/* New / Edit Asset Modal */}
       <Modal
         isOpen={isAssetModalOpen}
-        onClose={() => setIsAssetModalOpen(false)}
-        title="Add Portfolio Holding"
+        onClose={() => {
+          setIsAssetModalOpen(false);
+          setEditingAsset(null);
+        }}
+        title={editingAsset ? 'Edit Portfolio Holding' : 'Add Portfolio Holding'}
         size="md"
       >
         <form onSubmit={handleCreateAsset} className="space-y-4">
@@ -962,7 +1027,10 @@ export function InvestmentsView() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setIsAssetModalOpen(false)}
+              onClick={() => {
+                setIsAssetModalOpen(false);
+                setEditingAsset(null);
+              }}
               disabled={submitting}
               size="sm"
               className="flex-1 sm:flex-initial"
@@ -970,7 +1038,7 @@ export function InvestmentsView() {
               Cancel
             </Button>
             <Button type="submit" isLoading={submitting} disabled={submitting} size="sm" className="flex-1 sm:flex-initial">
-              Add Holding
+              {editingAsset ? 'Save Changes' : 'Add Holding'}
             </Button>
           </div>
         </form>

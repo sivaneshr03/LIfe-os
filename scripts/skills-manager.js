@@ -14,7 +14,7 @@ const https = require('https');
 const ROOT_DIR = path.resolve(__dirname, '..');
 const SKILLS_DIR = path.join(ROOT_DIR, '.agents', 'skills');
 const CATALOG_PATH = path.join(ROOT_DIR, '.agents', 'catalog', 'skills_index.json');
-const SCRATCH_SRC = 'C:/Users/sivan/.gemini/antigravity-ide/brain/94a84427-4d4e-49f4-b870-a8f7085e11d4/scratch/agentic-awesome-skills/skills';
+const SCRATCH_SRC = process.env.AAS_SCRATCH_SRC || path.join(ROOT_DIR, '.agents', 'cache');
 const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/sickn33/agentic-awesome-skills/main/skills';
 
 // Pre-defined popular bundles
