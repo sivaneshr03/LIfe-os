@@ -541,4 +541,108 @@ describe('Personal Finance Engine API Suite', () => {
       expect(Array.isArray(json.data.activeDebts)).toBe(true);
     });
   });
+
+  describe('Lending & Payees / Contacts API Suite', () => {
+    let contactId: string;
+    let debtId: string;
+
+    it('creates a finance contact / payee', async () => {
+      const res = await app.request(
+        '/api/finance/contacts',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Cookie: userACookie,
+          },
+          body: JSON.stringify({
+            name: 'John Doe Partner',
+            notes: 'Peer / Borrower',
+          }),
+        },
+        { DB: testD1 }
+      );
+      expect(res.status).toBe(201);
+      const json = (await res.json()) as ApiSuccessResponse<FinanceContactData>;
+      expect(json.data.name).toBe('John Doe Partner');
+      expect(json.data.totalGivenCents).toBe(0);
+      contactId = json.data.id;
+    });
+
+    it('creates a lending debt associated with the contact', async () => {
+      const res = await app.request(
+        '/api/finance/debts',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Cookie: userACookie,
+          },
+          body: JSON.stringify({
+            contactId,
+            name: 'Disbursed Loan',
+            creditor: 'John Doe Partner',
+            debtType: 'money_given',
+            totalOwedCents: 50000,
+          }),
+        },
+        { DB: testD1 }
+      );
+      expect(res.status).toBe(201);
+      const json = (await res.json()) as ApiSuccessResponse<FinanceDebtData>;
+      expect(json.data.contactId).toBe(contactId);
+      expect(json.data.totalOwedCents).toBe(50000);
+      debtId = json.data.id;
+    });
+
+    it('retrieves contacts and reflects calculated loan balances', async () => {
+      const res = await app.request(
+        '/api/finance/contacts',
+        {
+          headers: { Cookie: userACookie },
+        },
+        { DB: testD1 }
+      );
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as ApiSuccessResponse<FinanceContactData[]>;
+      const contact = json.data.find((c) => c.id === contactId);
+      expect(contact).toBeDefined();
+      expect(contact?.totalGivenCents).toBe(50000);
+      expect(contact?.netOwedCents).toBe(50000);
+    });
+
+    it('settles lending debt with a payment and updates balances', async () => {
+      const res = await app.request(
+        `/api/finance/debts/${debtId}/payments`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Cookie: userACookie,
+          },
+          body: JSON.stringify({
+            date: '2026-10-18',
+            amountCents: 50000,
+            principalCents: 50000,
+            notes: 'Settlement via UPI / GPay',
+          }),
+        },
+        { DB: testD1 }
+      );
+      expect(res.status).toBe(201);
+
+      // Verify contact balance is now settled
+      const cRes = await app.request(
+        '/api/finance/contacts',
+        {
+          headers: { Cookie: userACookie },
+        },
+        { DB: testD1 }
+      );
+      const cJson = (await cRes.json()) as ApiSuccessResponse<FinanceContactData[]>;
+      const contact = cJson.data.find((c) => c.id === contactId);
+      expect(contact?.totalGivenCents).toBe(0);
+      expect(contact?.netOwedCents).toBe(0);
+    });
+  });
 });

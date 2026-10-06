@@ -1,15 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { clsx } from 'clsx';
 import { useToast } from '../ui/Toast';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
+import { LoadingState } from '../ui/States';
+import type { FinanceContactData, FinanceDebtData } from '@/shared/financeTypes';
 import {
   IconPayments,
   IconArrowUpRight,
   IconArrowDownLeft,
   IconUsers,
-  IconPieChart,
   IconClock,
   IconCheck,
   IconAlertTriangle,
@@ -21,6 +22,7 @@ import {
   IconPlus,
   IconTrash,
   IconEdit,
+  IconRefresh,
 } from '../ui/Icons';
 
 export interface LendingLedgerEntry {
@@ -64,8 +66,10 @@ function formatRupee(minorUnits: number): string {
 export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
   const { toast } = useToast();
 
-  const [ledgerEntries, setLedgerEntries] = useState<LendingLedgerEntry[]>([]);
-  const [counterparties, setCounterparties] = useState<CounterpartyProfile[]>([]);
+  const [contacts, setContacts] = useState<FinanceContactData[]>([]);
+  const [debts, setDebts] = useState<FinanceDebtData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterPill, setFilterPill] = useState<'all' | 'vendor' | 'personal' | 'settled' | 'pending'>('all');
 
   // Express Input State
@@ -88,6 +92,183 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
   const [newCpRole, setNewCpRole] = useState('');
   const [newCpType, setNewCpType] = useState<'receivable' | 'payable'>('receivable');
   const [newCpAmount, setNewCpAmount] = useState('');
+
+  // Synchronize from Cloudflare D1 production database
+  const fetchData = useCallback(async (quiet = false) => {
+    if (!quiet) setIsLoading(true);
+    else setIsRefreshing(true);
+    try {
+      const [contactsRes, debtsRes] = await Promise.all([
+        fetch('/api/finance/contacts'),
+        fetch('/api/finance/debts'),
+      ]);
+
+      if (contactsRes.ok) {
+        const contactsJson = await contactsRes.json();
+        if (contactsJson.success && Array.isArray(contactsJson.data)) {
+          setContacts(contactsJson.data);
+        }
+      }
+
+      if (debtsRes.ok) {
+        const debtsJson = await debtsRes.json();
+        if (debtsJson.success && Array.isArray(debtsJson.data)) {
+          setDebts(debtsJson.data);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to sync Lending & Payee data from database:', err);
+      toast('Failed to load lending records from server', 'error');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Derive Counterparty Profiles from contacts and linked debts
+  const counterparties: CounterpartyProfile[] = useMemo(() => {
+    const list: CounterpartyProfile[] = [];
+    const seenNames = new Set<string>();
+
+    for (const c of contacts) {
+      seenNames.add(c.name.toLowerCase());
+      const linkedDebts = debts.filter(
+        (d) => d.contactId === c.id || d.creditor.toLowerCase() === c.name.toLowerCase()
+      );
+
+      const lentCents = linkedDebts
+        .filter((d) => d.debtType === 'money_given' || d.debtType === 'loan')
+        .reduce((sum, d) => sum + d.totalOwedCents, 0);
+
+      const returnedCents = linkedDebts.reduce((sum, d) => sum + (d.totalPaidCents || 0), 0);
+
+      const balanceCents = linkedDebts.reduce(
+        (sum, d) => sum + (d.remainingBalanceCents ?? Math.max(0, d.totalOwedCents - (d.totalPaidCents || 0))),
+        0
+      );
+
+      const hasPayable = linkedDebts.some((d) => d.debtType === 'money_borrowed');
+      const isOverdue = linkedDebts.some((d) => d.isOverdue);
+
+      const initials =
+        c.name
+          .split(' ')
+          .map((n) => n[0])
+          .slice(0, 2)
+          .join('')
+          .toUpperCase() || 'CP';
+
+      const type: 'receivable' | 'payable' | 'settled' =
+        balanceCents === 0 ? 'settled' : hasPayable ? 'payable' : 'receivable';
+
+      const statusBadge =
+        balanceCents === 0 ? 'Settled' : type === 'payable' ? 'To Pay' : 'Pending';
+
+      list.push({
+        id: c.id,
+        name: c.name,
+        initials,
+        role: c.notes || (type === 'receivable' ? 'Peer / Borrower' : 'Creditor'),
+        type,
+        lentCents,
+        returnedCents,
+        balanceCents,
+        statusBadge,
+        isOverdue,
+      });
+    }
+
+    // Also include any debts created outside contacts
+    for (const d of debts) {
+      if (
+        (d.debtType === 'money_given' || d.debtType === 'money_borrowed' || d.debtType === 'loan') &&
+        !seenNames.has(d.creditor.toLowerCase())
+      ) {
+        seenNames.add(d.creditor.toLowerCase());
+        const initials =
+          d.creditor
+            .split(' ')
+            .map((n) => n[0])
+            .slice(0, 2)
+            .join('')
+            .toUpperCase() || 'CP';
+
+        const remaining = d.remainingBalanceCents ?? Math.max(0, d.totalOwedCents - (d.totalPaidCents || 0));
+        const type: 'receivable' | 'payable' | 'settled' =
+          remaining === 0 ? 'settled' : d.debtType === 'money_borrowed' ? 'payable' : 'receivable';
+
+        list.push({
+          id: d.contactId || `synth-${d.id}`,
+          name: d.creditor,
+          initials,
+          role: d.notes || (type === 'receivable' ? 'Peer / Borrower' : 'Creditor'),
+          type,
+          lentCents: d.totalOwedCents,
+          returnedCents: d.totalPaidCents || 0,
+          balanceCents: remaining,
+          statusBadge: remaining === 0 ? 'Settled' : type === 'payable' ? 'To Pay' : 'Pending',
+          isOverdue: Boolean(d.isOverdue),
+        });
+      }
+    }
+
+    return list;
+  }, [contacts, debts]);
+
+  // Derive Ledger Entries from active and settled debts in database
+  const ledgerEntries: LendingLedgerEntry[] = useMemo(() => {
+    return debts
+      .filter((d) => d.debtType === 'money_given' || d.debtType === 'money_borrowed' || d.debtType === 'loan' || d.contactId)
+      .map((d) => {
+        const counterpartyName = d.contactName || d.creditor;
+        const initials =
+          counterpartyName
+            .split(' ')
+            .map((n) => n[0])
+            .slice(0, 2)
+            .join('')
+            .toUpperCase() || 'CP';
+
+        const channel = (
+          d.notes?.includes('Channel:')
+            ? d.notes.split('Channel:')[1].split('|')[0].trim()
+            : 'UPI / GPay'
+        ) as LendingLedgerEntry['channel'];
+
+        const paid = d.totalPaidCents || 0;
+        const status: LendingLedgerEntry['status'] = d.isPaidOff
+          ? 'settled'
+          : d.isOverdue
+          ? 'overdue'
+          : paid > 0
+          ? 'partial'
+          : 'pending';
+
+        return {
+          id: d.id,
+          date: d.dueDate || new Date(d.createdAt).toISOString().split('T')[0],
+          counterparty: counterpartyName,
+          counterpartyInitials: initials,
+          category: d.debtType === 'money_borrowed' ? 'vendor_payout' : 'personal_loan',
+          categoryLabel: d.name || (d.debtType === 'money_given' ? 'Disbursed Loan' : 'Payable Liability'),
+          channel: (['UPI / GPay', 'NEFT / Wire', 'Cash Payout', 'Direct NetBanking', 'Card'] as const).includes(
+            channel as LendingLedgerEntry['channel']
+          )
+            ? (channel as LendingLedgerEntry['channel'])
+            : 'UPI / GPay',
+          amountCents: d.totalOwedCents,
+          totalPrincipalCents: d.totalOwedCents,
+          paidCents: paid,
+          status,
+          dueDate: d.dueDate || undefined,
+        };
+      })
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [debts]);
 
   // Selected Payee Details safely handled
   const selectedPayee = useMemo(
@@ -134,7 +315,7 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
     }
   }, [ledgerEntries, filterPill]);
 
-  const handleRapidRecord = (e: React.FormEvent) => {
+  const handleRapidRecord = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAmount = parseFloat(rapidAmount);
     if (!rapidName.trim() || isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -143,60 +324,78 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
     }
 
     const minorUnits = Math.round(parsedAmount * 100);
-    const initials = rapidName
-      .split(' ')
-      .map((n) => n[0])
-      .slice(0, 2)
-      .join('')
-      .toUpperCase();
 
-    const newTx: LendingLedgerEntry = {
-      id: `tx-${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
-      counterparty: rapidName.trim(),
-      counterpartyInitials: initials || 'CP',
-      category: 'personal_loan',
-      categoryLabel: 'Micro-Disbursement',
-      channel: rapidChannel,
-      amountCents: minorUnits,
-      totalPrincipalCents: minorUnits,
-      paidCents: minorUnits,
-      status: 'settled',
-    };
+    try {
+      // Find or create contact in D1
+      let targetContactId: string | null = null;
+      const existingContact = contacts.find(
+        (c) => c.name.toLowerCase() === rapidName.trim().toLowerCase()
+      );
 
-    setLedgerEntries((prev) => [newTx, ...prev]);
-
-    // Also register or update counterparty profile
-    setCounterparties((prev) => {
-      const match = prev.find((c) => c.name.toLowerCase() === rapidName.trim().toLowerCase());
-      if (match) {
-        return prev.map((c) =>
-          c.id === match.id
-            ? {
-                ...c,
-                lentCents: c.lentCents + minorUnits,
-                returnedCents: c.returnedCents + minorUnits,
-              }
-            : c
-        );
+      if (existingContact) {
+        targetContactId = existingContact.id;
+      } else {
+        const cRes = await fetch('/api/finance/contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: rapidName.trim(),
+            notes: 'Peer / Payee',
+          }),
+        });
+        if (cRes.ok) {
+          const cJson = await cRes.json();
+          targetContactId = cJson.data.id;
+        }
       }
-      const newCp: CounterpartyProfile = {
-        id: `cp-${Date.now()}`,
-        name: rapidName.trim(),
-        initials: initials || 'CP',
-        role: 'Peer / Payee',
-        type: 'settled',
-        lentCents: minorUnits,
-        returnedCents: minorUnits,
-        balanceCents: 0,
-        statusBadge: 'Settled',
-      };
-      return [...prev, newCp];
-    });
 
-    setRapidName('');
-    setRapidAmount('');
-    toast(`Payment of ${formatRupee(minorUnits)} recorded for ${rapidName}`, 'success');
+      // Create debt in database
+      const debtRes = await fetch('/api/finance/debts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contactId: targetContactId,
+          name: 'Micro-Disbursement',
+          creditor: rapidName.trim(),
+          debtType: 'money_given',
+          totalOwedCents: minorUnits,
+          interestRateBps: 0,
+          minimumPaymentCents: 0,
+          notes: `Channel: ${rapidChannel}`,
+        }),
+      });
+
+      if (!debtRes.ok) {
+        throw new Error('Failed to record disbursement in database');
+      }
+
+      const debtJson = await debtRes.json();
+      const createdDebt = debtJson.data;
+
+      // Immediately record settlement payment in D1
+      const payRes = await fetch(`/api/finance/debts/${createdDebt.id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: new Date().toISOString().split('T')[0],
+          amountCents: minorUnits,
+          principalCents: minorUnits,
+          notes: `Disbursed via ${rapidChannel}`,
+        }),
+      });
+
+      if (!payRes.ok) {
+        throw new Error('Failed to commit settlement payment');
+      }
+
+      setRapidName('');
+      setRapidAmount('');
+      toast(`Payment of ${formatRupee(minorUnits)} recorded and saved for ${rapidName}`, 'success');
+      await fetchData(true);
+    } catch (err) {
+      console.error(err);
+      toast(err instanceof Error ? err.message : 'Error recording disbursement', 'error');
+    }
   };
 
   const handleExecuteSettle = async () => {
@@ -211,46 +410,73 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
     }
 
     setIsCommitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
     const minorUnits = Math.round(parsed * 100);
 
-    // Update counterparty
-    setCounterparties((prev) =>
-      prev.map((c) => {
-        if (c.id === selectedPayee.id) {
-          const newBalance = Math.max(0, c.balanceCents - minorUnits);
-          return {
-            ...c,
-            returnedCents: c.returnedCents + minorUnits,
-            balanceCents: newBalance,
-            type: newBalance === 0 ? 'settled' : c.type,
-            statusBadge: newBalance === 0 ? 'Settled' : c.statusBadge,
-          };
+    try {
+      // Find an active unpaid debt for this contact or creditor
+      const activeDebt = debts.find(
+        (d) =>
+          !d.isPaidOff &&
+          (d.contactId === selectedPayee.id ||
+            d.creditor.toLowerCase() === selectedPayee.name.toLowerCase())
+      );
+
+      if (activeDebt) {
+        const payRes = await fetch(`/api/finance/debts/${activeDebt.id}/payments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: new Date().toISOString().split('T')[0],
+            amountCents: minorUnits,
+            principalCents: minorUnits,
+            notes: `Settlement via ${settleRoute}`,
+          }),
+        });
+
+        if (!payRes.ok) {
+          throw new Error('Failed to record settlement payment');
         }
-        return c;
-      })
-    );
+      } else {
+        // Create debt and settle it
+        const debtRes = await fetch('/api/finance/debts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contactId: selectedPayee.id.startsWith('cnt_') ? selectedPayee.id : undefined,
+            name: 'Settlement Resolution',
+            creditor: selectedPayee.name,
+            debtType: selectedPayee.type === 'payable' ? 'money_borrowed' : 'money_given',
+            totalOwedCents: minorUnits,
+            interestRateBps: 0,
+            minimumPaymentCents: 0,
+            notes: `Channel: ${settleRoute}`,
+          }),
+        });
+        if (debtRes.ok) {
+          const debtJson = await debtRes.json();
+          await fetch(`/api/finance/debts/${debtJson.data.id}/payments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              date: new Date().toISOString().split('T')[0],
+              amountCents: minorUnits,
+              principalCents: minorUnits,
+              notes: `Settlement via ${settleRoute}`,
+            }),
+          });
+        }
+      }
 
-    // Record settlement ledger entry
-    const newTx: LendingLedgerEntry = {
-      id: `tx-settle-${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
-      counterparty: selectedPayee.name,
-      counterpartyInitials: selectedPayee.initials,
-      category: 'personal_loan',
-      categoryLabel: 'Settlement Resolution',
-      channel: settleRoute === 'UPI' ? 'UPI / GPay' : settleRoute === 'NEFT' ? 'NEFT / Wire' : 'Cash Payout',
-      amountCents: minorUnits,
-      totalPrincipalCents: selectedPayee.lentCents || minorUnits,
-      paidCents: minorUnits,
-      status: 'settled',
-    };
-
-    setLedgerEntries((prev) => [newTx, ...prev]);
-    setIsCommitting(false);
-    setIsSettleModalOpen(false);
-    toast(`Successfully settled ${formatRupee(minorUnits)} with ${selectedPayee.name}`, 'success');
+      setIsSettleModalOpen(false);
+      setSettleAmount('');
+      toast(`Successfully settled ${formatRupee(minorUnits)} with ${selectedPayee.name}`, 'success');
+      await fetchData(true);
+    } catch (err) {
+      console.error(err);
+      toast(err instanceof Error ? err.message : 'Error committing settlement', 'error');
+    } finally {
+      setIsCommitting(false);
+    }
   };
 
   const handleOpenCreateCounterparty = () => {
@@ -271,7 +497,7 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
     setIsAddCounterpartyOpen(true);
   };
 
-  const handleAddCounterparty = (e: React.FormEvent) => {
+  const handleAddCounterparty = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCpName.trim()) {
       toast('Please enter a counterparty name.', 'error');
@@ -280,92 +506,105 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
     const initialAmt = parseFloat(newCpAmount) || 0;
     const initialCents = Math.round(initialAmt * 100);
 
-    const initials = newCpName
-      .split(' ')
-      .map((n) => n[0])
-      .slice(0, 2)
-      .join('')
-      .toUpperCase();
+    try {
+      if (editingCounterparty) {
+        if (editingCounterparty.id.startsWith('cnt_')) {
+          const patchRes = await fetch(`/api/finance/contacts/${editingCounterparty.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: newCpName.trim(),
+              notes: newCpRole.trim() || undefined,
+            }),
+          });
+          if (!patchRes.ok) {
+            throw new Error('Failed to update counterparty in database');
+          }
+        }
+        toast(`Counterparty ${newCpName.trim()} updated.`, 'success');
+      } else {
+        const cRes = await fetch('/api/finance/contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: newCpName.trim(),
+            notes: newCpRole.trim() || undefined,
+          }),
+        });
 
-    if (editingCounterparty) {
-      const oldName = editingCounterparty.name;
-      const updatedCp: CounterpartyProfile = {
-        ...editingCounterparty,
-        name: newCpName.trim(),
-        initials: initials || 'CP',
-        role: newCpRole.trim() || editingCounterparty.role,
-        type: newCpType,
-        balanceCents: initialCents,
-        statusBadge: initialCents > 0 ? (newCpType === 'receivable' ? 'Pending' : 'To Pay') : 'Settled',
-      };
-      setCounterparties((prev) => prev.map((c) => (c.id === editingCounterparty.id ? updatedCp : c)));
-      if (oldName.toLowerCase() !== updatedCp.name.toLowerCase()) {
-        setLedgerEntries((prev) =>
-          prev.map((tx) =>
-            tx.counterparty.toLowerCase() === oldName.toLowerCase()
-              ? { ...tx, counterparty: updatedCp.name, counterpartyInitials: updatedCp.initials }
-              : tx
-          )
-        );
+        if (!cRes.ok) {
+          throw new Error('Failed to register counterparty in database');
+        }
+
+        const cJson = await cRes.json();
+        const contactId = cJson.data.id;
+
+        if (initialCents > 0) {
+          const debtRes = await fetch('/api/finance/debts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contactId,
+              name: newCpType === 'receivable' ? 'Disbursed Loan' : 'Payable Liability',
+              creditor: newCpName.trim(),
+              debtType: newCpType === 'receivable' ? 'money_given' : 'money_borrowed',
+              totalOwedCents: initialCents,
+              interestRateBps: 0,
+              minimumPaymentCents: 0,
+              notes: `Channel: UPI / GPay | Role: ${newCpRole.trim()}`,
+            }),
+          });
+          if (!debtRes.ok) {
+            throw new Error('Failed to record initial balance');
+          }
+        }
+        toast(`Counterparty ${newCpName.trim()} registered in D1 database.`, 'success');
       }
+
       setIsAddCounterpartyOpen(false);
       setEditingCounterparty(null);
       setNewCpName('');
       setNewCpRole('');
       setNewCpAmount('');
-      toast(`Counterparty ${updatedCp.name} updated.`, 'success');
-      return;
+      await fetchData(true);
+    } catch (err) {
+      console.error(err);
+      toast(err instanceof Error ? err.message : 'Error saving counterparty', 'error');
     }
-
-    const newCp: CounterpartyProfile = {
-      id: `cp-${Date.now()}`,
-      name: newCpName.trim(),
-      initials: initials || 'CP',
-      role: newCpRole.trim() || (newCpType === 'receivable' ? 'Peer / Borrower' : 'Creditor'),
-      type: newCpType,
-      lentCents: initialCents,
-      returnedCents: 0,
-      balanceCents: initialCents,
-      statusBadge: initialCents > 0 ? (newCpType === 'receivable' ? 'Pending' : 'To Pay') : 'Settled',
-    };
-
-    setCounterparties((prev) => [...prev, newCp]);
-    if (initialCents > 0) {
-      const openingTx: LendingLedgerEntry = {
-        id: `tx-${Date.now()}`,
-        date: new Date().toISOString().split('T')[0],
-        counterparty: newCp.name,
-        counterpartyInitials: newCp.initials,
-        category: newCpType === 'receivable' ? 'personal_loan' : 'vendor_payout',
-        categoryLabel: newCpType === 'receivable' ? 'Disbursed Loan' : 'Payable Liability',
-        channel: 'UPI / GPay',
-        amountCents: initialCents,
-        totalPrincipalCents: initialCents,
-        paidCents: 0,
-        status: 'pending',
-      };
-      setLedgerEntries((prev) => [openingTx, ...prev]);
-    }
-
-    setIsAddCounterpartyOpen(false);
-    setNewCpName('');
-    setNewCpRole('');
-    setNewCpAmount('');
-    toast(`Counterparty ${newCp.name} registered.`, 'success');
   };
 
-  const handleDeleteCounterparty = (id: string) => {
+  const handleDeleteCounterparty = async (id: string) => {
     const cp = counterparties.find((c) => c.id === id);
-    setCounterparties((prev) => prev.filter((c) => c.id !== id));
-    if (cp) {
-      setLedgerEntries((prev) => prev.filter((tx) => tx.counterparty.toLowerCase() !== cp.name.toLowerCase()));
-      toast(`Counterparty "${cp.name}" removed`, 'info');
+    try {
+      if (id.startsWith('cnt_')) {
+        await fetch(`/api/finance/contacts/${id}`, { method: 'DELETE' });
+      }
+      const linkedDebts = debts.filter(
+        (d) => d.contactId === id || (cp && d.creditor.toLowerCase() === cp.name.toLowerCase())
+      );
+      for (const d of linkedDebts) {
+        await fetch(`/api/finance/debts/${d.id}`, { method: 'DELETE' }).catch(() => null);
+      }
+      toast(`Counterparty "${cp?.name || id}" removed from database`, 'info');
+      await fetchData(true);
+    } catch (err) {
+      console.error(err);
+      toast('Failed to delete counterparty from server', 'error');
     }
   };
 
-  const handleDeleteLedgerEntry = (id: string) => {
-    setLedgerEntries((prev) => prev.filter((tx) => tx.id !== id));
-    toast('Ledger entry removed', 'info');
+  const handleDeleteLedgerEntry = async (id: string) => {
+    try {
+      const res = await fetch(`/api/finance/debts/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        throw new Error('Failed to delete entry');
+      }
+      toast('Ledger entry removed from database', 'info');
+      await fetchData(true);
+    } catch (err) {
+      console.error(err);
+      toast('Failed to remove entry from server', 'error');
+    }
   };
 
   const exportCsv = () => {
@@ -390,6 +629,14 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
     toast('Lending and debt ledger exported as CSV', 'success');
   };
 
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto py-12 animate-fade-in">
+        <LoadingState message="Connecting to D1 Ledger & Loading Records..." variant="skeleton" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12 animate-fade-up">
       {/* Executive Command Header */}
@@ -407,6 +654,16 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <Button
+            onClick={() => fetchData(true)}
+            variant="outline"
+            size="sm"
+            disabled={isRefreshing}
+            className="cursor-pointer text-xs rounded-xl shadow-xs"
+            title="Sync with production D1 database"
+          >
+            <IconRefresh size={14} className={clsx("mr-1.5 text-on-surface-variant", isRefreshing && "animate-spin")} /> {isRefreshing ? 'Syncing...' : 'Sync'}
+          </Button>
           <Button
             onClick={exportCsv}
             variant="outline"
@@ -731,7 +988,7 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
             />
             <select
               value={rapidChannel}
-              onChange={(e) => setRapidChannel(e.target.value as any)}
+              onChange={(e) => setRapidChannel(e.target.value as 'UPI / GPay' | 'NEFT / Wire' | 'Cash Payout' | 'Direct NetBanking')}
               className="bg-surface-container-low text-on-surface text-xs px-3 py-2 rounded-xl outline-none border border-border/50 cursor-pointer"
             >
               <option value="UPI / GPay">UPI</option>
@@ -1250,7 +1507,7 @@ export function LendingView({ onNavigate: _onNavigate }: LendingViewProps) {
               </label>
               <select
                 value={newCpType}
-                onChange={(e) => setNewCpType(e.target.value as any)}
+                onChange={(e) => setNewCpType(e.target.value as 'receivable' | 'payable')}
                 className="w-full mt-1 bg-surface-container-low text-on-surface text-xs p-2.5 rounded-xl border border-border/60 outline-none"
               >
                 <option value="receivable">Owed to Us (Receivable)</option>

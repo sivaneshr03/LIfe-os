@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import readline from 'node:readline';
+import fs from 'node:fs';
 
 const colors = {
   reset: '\x1b[0m',
@@ -21,6 +22,11 @@ function prefixStream(stream, prefix, color) {
     }
     console.log(`${color}[${prefix}]${colors.reset} ${line}`);
   });
+}
+
+// Ensure dist/client exists so Wrangler doesn't error on missing assets dir
+if (!fs.existsSync('dist/client')) {
+  fs.mkdirSync('dist/client', { recursive: true });
 }
 
 console.log(`${colors.green}🚀 Starting LifeOS Fullstack Development Environment...${colors.reset}`);
